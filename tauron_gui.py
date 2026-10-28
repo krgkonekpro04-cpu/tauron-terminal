@@ -7,7 +7,7 @@ import shlex
 import sys
 import tkinter as tk
 from pathlib import Path
-from tkinter import filedialog
+from tkinter import filedialog, ttk
 
 from tauron import Tauron
 
@@ -29,18 +29,12 @@ class TextOutput:
 
 
 class TauronWindow:
-    BG = "#08120f"
-    PANEL = "#101d19"
-    GREEN = "#9df5bd"
-    MUTED = "#91aa9b"
-    WHITE = "#edf7f0"
-
     def __init__(self) -> None:
         self.root = tk.Tk()
-        self.root.title("Tauron")
+        self.root.title("Tauron Desktop")
+        self.root.tk.call("tk", "appname", "Tauron")
         self.root.geometry("1060x720")
         self.root.minsize(760, 500)
-        self.root.configure(bg=self.BG)
         self.engine = Tauron()
         self.engine.cwd = Path.home()
         self.command_history: list[str] = []
@@ -58,54 +52,47 @@ class TauronWindow:
         self.root.protocol("WM_DELETE_WINDOW", self.close)
 
     def build(self) -> None:
-        header = tk.Frame(self.root, bg=self.PANEL, padx=22, pady=14)
+        shell = ttk.Frame(self.root, padding=14)
+        shell.pack(fill="both", expand=True)
+        header = ttk.Frame(shell, padding=(4, 4, 4, 12))
         header.pack(fill="x")
-        brand = tk.Label(header, text="TAURON", bg=self.PANEL, fg=self.GREEN,
-                         font=("Menlo", 19, "bold"))
-        brand.pack(side="left")
-        tk.Label(header, text="  DESKTOP TERMINAL", bg=self.PANEL, fg=self.MUTED,
-                 font=("Menlo", 10)).pack(side="left", pady=(5, 0))
-        tk.Label(header, text="●  MAC FILES · DIRECT", bg=self.PANEL, fg=self.GREEN,
-                 font=("Menlo", 9, "bold")).pack(side="right", pady=(5, 0))
+        ttk.Label(header, text="TAURON", font=("Menlo", 18, "bold")).pack(side="left")
+        ttk.Label(header, text="  Desktop Terminal").pack(side="left", pady=(5, 0))
+        ttk.Label(header, text="Mac files · direct").pack(side="right", pady=(5, 0))
 
-        body = tk.Frame(self.root, bg=self.BG)
-        body.pack(fill="both", expand=True, padx=16, pady=16)
-        sidebar = tk.Frame(body, bg=self.PANEL, width=260, padx=12, pady=12)
-        sidebar.pack(side="left", fill="y")
-        sidebar.pack_propagate(False)
-        tk.Label(sidebar, text="MAC FILES", bg=self.PANEL, fg=self.GREEN,
-                 font=("Menlo", 10, "bold")).pack(anchor="w")
-        self.path_label = tk.Label(sidebar, text="", bg=self.PANEL, fg=self.MUTED,
-                                   font=("Menlo", 9), wraplength=230, justify="left")
-        self.path_label.pack(anchor="w", fill="x", pady=(8, 10))
-        self.file_list = tk.Listbox(sidebar, bg=self.BG, fg=self.WHITE,
-                                    selectbackground="#20573a", selectforeground="white",
-                                    font=("Menlo", 10), relief="flat", highlightthickness=0,
-                                    activestyle="none")
-        self.file_list.pack(fill="both", expand=True)
+        body = ttk.Panedwindow(shell, orient="horizontal")
+        body.pack(fill="both", expand=True)
+        sidebar = ttk.Frame(body, width=250, padding=10)
+        terminal = ttk.Frame(body, padding=(10, 0, 0, 0))
+        body.add(sidebar, weight=0)
+        body.add(terminal, weight=1)
+        ttk.Label(sidebar, text="MAC FILES", font=("Menlo", 10, "bold")).pack(anchor="w")
+        self.path_label = ttk.Label(sidebar, text="", wraplength=225, justify="left")
+        self.path_label.pack(anchor="w", fill="x", pady=(7, 10))
+        file_box = ttk.Frame(sidebar)
+        file_box.pack(fill="both", expand=True)
+        self.file_list = tk.Listbox(file_box, font=("Menlo", 10), activestyle="none")
+        file_scroll = ttk.Scrollbar(file_box, orient="vertical", command=self.file_list.yview)
+        self.file_list.configure(yscrollcommand=file_scroll.set)
+        self.file_list.pack(side="left", fill="both", expand=True)
+        file_scroll.pack(side="right", fill="y")
         self.file_list.bind("<Double-Button-1>", self.open_selected)
-        tk.Button(sidebar, text="Choose folder…", command=self.choose_folder,
-                  bg="#173827", fg=self.GREEN, activebackground="#20573a",
-                  activeforeground="white", relief="flat", font=("Menlo", 10),
-                  padx=8, pady=8).pack(fill="x", pady=(10, 0))
+        ttk.Button(sidebar, text="Choose folder…", command=self.choose_folder).pack(fill="x", pady=(10, 0))
 
-        terminal = tk.Frame(body, bg=self.BG)
-        terminal.pack(side="left", fill="both", expand=True, padx=(14, 0))
-        self.output = tk.Text(terminal, bg=self.BG, fg=self.GREEN, insertbackground=self.GREEN,
-                              font=("Menlo", 11), relief="flat", wrap="word",
-                              padx=16, pady=16, spacing1=2, state="disabled")
-        self.output.pack(fill="both", expand=True)
-        self.output.tag_configure("system", foreground=self.MUTED)
-        self.output.tag_configure("command", foreground=self.WHITE)
-        self.output.tag_configure("error", foreground="#ff8585")
+        output_box = ttk.Frame(terminal)
+        output_box.pack(fill="both", expand=True)
+        self.output = tk.Text(output_box, font=("Menlo", 11), wrap="word", padx=12, pady=12,
+                              state="disabled", height=10)
+        output_scroll = ttk.Scrollbar(output_box, orient="vertical", command=self.output.yview)
+        self.output.configure(yscrollcommand=output_scroll.set)
+        self.output.pack(side="left", fill="both", expand=True)
+        output_scroll.pack(side="right", fill="y")
 
-        input_row = tk.Frame(terminal, bg=self.PANEL, padx=12, pady=10)
-        input_row.pack(fill="x", pady=(12, 0))
-        self.prompt = tk.Label(input_row, text="", bg=self.PANEL, fg=self.GREEN,
-                               font=("Menlo", 10, "bold"))
+        input_row = ttk.Frame(terminal, padding=(0, 10, 0, 0))
+        input_row.pack(fill="x")
+        self.prompt = ttk.Label(input_row, text="", font=("Menlo", 10, "bold"))
         self.prompt.pack(side="left")
-        self.entry = tk.Entry(input_row, bg=self.PANEL, fg=self.WHITE, insertbackground=self.GREEN,
-                              font=("Menlo", 11), relief="flat", borderwidth=0)
+        self.entry = ttk.Entry(input_row, font=("Menlo", 11))
         self.entry.pack(side="left", fill="x", expand=True, padx=(8, 0))
         self.entry.bind("<Return>", self.submit)
         self.entry.bind("<Up>", self.previous_command)
@@ -113,10 +100,7 @@ class TauronWindow:
         self.entry.focus_set()
         self.update_prompt()
 
-        footer = tk.Label(self.root,
-                          text="Commands work directly in the selected Mac folder. Type help to browse commands.",
-                          bg=self.BG, fg=self.MUTED, font=("Menlo", 9), anchor="w", padx=18, pady=7)
-        footer.pack(fill="x")
+        ttk.Label(shell, text="Commands work directly in the selected Mac folder. Type help to browse commands.").pack(anchor="w", pady=(10, 0))
 
     def append_output(self, value: str) -> None:
         self.output.configure(state="normal")
