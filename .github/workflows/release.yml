@@ -20,4 +20,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           VERSION="v$(cat VERSION)"
-          gh release view "$VERSION" >/dev/null 2>&1 || gh release create "$VERSION" tauron-macos.zip --generate-notes
+          if gh release view "$VERSION" >/dev/null 2>&1; then
+            gh release upload "$VERSION" tauron-macos.zip --clobber
+          else
+            gh release create "$VERSION" tauron-macos.zip --generate-notes
+          fi
