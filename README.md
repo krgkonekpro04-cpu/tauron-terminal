@@ -8,9 +8,9 @@ Install the downloaded release with `install.command` once. Then open **Tauron.a
 
 Tauron Desktop uses a native macOS interface and Python 3 to run Tauron's command engine. Tkinter is not required.
 
-## Gemini coding assistant
+## Tauron AI
 
-Select **Tauron AI** in Tauron Desktop for help with Tauron commands, `.tau` mods, and coding. Choose **Gemini (cloud)** and connect your own Google AI Studio API key, or choose **Ollama (local)** to use a model installed on your Mac without sending prompts to Gemini. Tauron stores the Gemini key in macOS Keychain. Ollama must be installed and running locally, with a model downloaded. You can attach a UTF-8 text/code file for review. The assistant suggests commands and edits but does not execute commands or change files.
+Select **Tauron AI** in Tauron Desktop for help with Tauron commands, `.tau`/`.tauron` source files, and coding. **Ollama (on this Mac)** is the default: install Ollama and download a model once, then Tauron can use it locally, including offline. Tauron supplies the local model with up to eight readable source files from the selected folder, plus any file you attach and the notes you saved. This project context is read-only and stays on the Mac with Ollama. **Gemini (optional cloud)** remains available if you choose it and connect your own Google AI Studio API key; prompts and attachments then go to Google's API. Tauron stores that key in macOS Keychain. The assistant suggests commands and edits but does not execute commands or change files.
 
 In the Tauron AI prompt, press Return to send and Shift+Return to insert a new line.
 
@@ -38,7 +38,7 @@ Tauron Desktop opens as a separate window with a scrollable command area and a l
 
 ## Tauron Mod Language
 
-Mods use `.tau` text files and are interpreted by Tauron; they cannot run arbitrary Python or shell code. Start with `examples/hello.tau`, then load it in Tauron with `mod load examples/hello.tau`. Use `mod list` to see loaded mods and `mod unload hello` to remove one until Tauron exits.
+Mods use `.tau` text files and are interpreted by Tauron; they cannot run arbitrary Python or shell code. `.tauron` and `.tau` files display the Tauron icon in Finder. Start with `examples/hello.tau`, then load it in Tauron with `mod load examples/hello.tau`. Use `mod list` to see loaded mods and `mod unload hello` to remove one until Tauron exits.
 
 A mod starts with `mod NAME`. Each custom command has `command NAME "description"` and ends with `end`. Instructions are indented for readability. Available instructions are:
 

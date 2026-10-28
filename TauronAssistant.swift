@@ -81,7 +81,7 @@ enum TauronAIProvider: String, CaseIterable, Identifiable {
     case ollama
 
     var id: String { rawValue }
-    var label: String { self == .gemini ? "Gemini (cloud)" : "Ollama (local)" }
+    var label: String { self == .gemini ? "Gemini (optional cloud)" : "Ollama (on this Mac)" }
 }
 
 @MainActor
@@ -103,7 +103,8 @@ final class TauronAIService: ObservableObject {
     var latestMessageText: String { messages.last?.text ?? "" }
 
     init() {
-        provider = TauronAIProvider(rawValue: UserDefaults.standard.string(forKey: "tauron.ai.provider") ?? "") ?? .gemini
+        // Prefer the on-device provider so Tauron works without a Gemini account or key.
+        provider = TauronAIProvider(rawValue: UserDefaults.standard.string(forKey: "tauron.ai.provider") ?? "") ?? .ollama
         localModel = UserDefaults.standard.string(forKey: "tauron.ai.ollamaModel") ?? "gemma4"
         hasAPIKey = apiKey != nil
         memories = Self.readMemories()
@@ -164,7 +165,7 @@ final class TauronAIService: ObservableObject {
         let question = draft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !question.isEmpty, !isWorking else { return }
         guard provider == .ollama || apiKey != nil else {
-            messages.append(TauronAssistantMessage(role: "Tauron AI", text: "Connect a Gemini API key in settings, or switch to the local Ollama provider."))
+            messages.append(TauronAssistantMessage(role: "Tauron AI", text: "Connect a Gemini API key in settings, or switch to the local Ollama provider. Tauron AI defaults to Ollama so it can work without Gemini."))
             return
         }
         draft = ""
@@ -172,12 +173,16 @@ final class TauronAIService: ObservableObject {
         isWorking = true
         defer { isWorking = false }
 
+        let workspaceContext = provider == .ollama ? Self.localWorkspaceContext(directory) : ""
         let systemPrompt = """
-        You are Tauron's coding and terminal assistant. Help with macOS programming, beginner-friendly coding, the Tauron command language, Tauron mods (.tau), and safe file-work workflows. Tauron is a custom command interpreter with commands such as help, ls, cd, cat, mkdir, touch, cp, mv, rm, find, mod, and changelog. It does not execute arbitrary shell commands, pipes, or redirection. Explain commands clearly and label code blocks with their language. Never claim that you ran a command or changed a file. Do not ask for passwords, API keys, or other secrets. Be clear when an instruction would delete or overwrite data.
+        You are Tauron AI, a careful coding and terminal assistant. Help with macOS programming, beginner-friendly coding, the Tauron command language, Tauron mods (.tau and .tauron), and safe file-work workflows. Explain your reasoning briefly, inspect the supplied project context before proposing edits, point out likely bugs, and give complete, runnable examples when useful. Ask a focused question when a missing detail changes the answer.
+
+        Tauron commands include help, ls, cd, cat, mkdir, touch, cp, mv, rm, find, mod, and changelog. Tauron is a custom command interpreter: it does not run arbitrary shell commands, pipes, or redirection. Never claim that you ran a command or changed a file. Do not ask for passwords, API keys, or other secrets. Clearly label destructive commands and explain what they remove or overwrite.
 
         Current Tauron folder: \(directory.path)
         User-approved local notes to remember between chats:
         \(memories.isEmpty ? "No saved notes." : memories.map { "- \($0)" }.joined(separator: "\n"))
+        \(workspaceContext)
         \(attachedFile ?? "No file is attached.")
         """
 
@@ -239,7 +244,7 @@ final class TauronAIService: ObservableObject {
                 answer = message?["content"] as? String
             }
             guard let answer, !answer.isEmpty else { throw GeminiError.emptyResponse }
-            await typeOut(answer, role: provider == .gemini ? "Gemini" : "Tauron AI · Local")
+            await typeOut(answer, role: "Tauron AI")
         } catch {
             let service = provider == .gemini ? "Gemini" : "Ollama"
             messages.append(TauronAssistantMessage(role: "Tauron AI", text: "\(service) request failed: \(error.localizedDescription)"))
@@ -281,6 +286,37 @@ final class TauronAIService: ObservableObject {
         } catch {
             messages.append(TauronAssistantMessage(role: "Tauron AI", text: "Could not save local memory: \(error.localizedDescription)"))
         }
+    }
+
+    /// Give an on-device model useful, bounded project context without uploading files.
+    private static func localWorkspaceContext(_ directory: URL) -> String {
+        let allowedExtensions: Set<String> = ["swift", "py", "js", "jsx", "ts", "tsx", "html", "css", "json", "md", "txt", "tau", "tauron", "sh", "yml", "yaml", "toml"]
+        let sensitiveNameParts = ["secret", "credential", "password", "token", "apikey", "api_key", ".env"]
+        let entries = (try? FileManager.default.contentsOfDirectory(
+            at: directory,
+            includingPropertiesForKeys: [.isRegularFileKey, .isHiddenKey],
+            options: [.skipsHiddenFiles]
+        )) ?? []
+        let candidates = entries.filter { url in
+            allowedExtensions.contains(url.pathExtension.lowercased()) &&
+            !sensitiveNameParts.contains(where: { url.lastPathComponent.lowercased().contains($0) }) &&
+            (try? url.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile) == true
+        }.sorted { $0.lastPathComponent.localizedCaseInsensitiveCompare($1.lastPathComponent) == .orderedAscending }
+
+        var sections: [String] = []
+        var remainingCharacters = 36_000
+        for url in candidates.prefix(8) where remainingCharacters > 0 {
+            guard let data = try? Data(contentsOf: url),
+                  let contents = String(data: data.prefix(min(data.count, min(12_000, remainingCharacters))), encoding: .utf8),
+                  !contents.isEmpty else { continue }
+            let section = "File: \(url.lastPathComponent)\n```\n\(contents)\n```"
+            sections.append(section)
+            remainingCharacters -= section.count
+        }
+        guard !sections.isEmpty else {
+            return "Local project context: no readable source or Tauron files found directly in the selected folder."
+        }
+        return "Local project context (read-only; only files in the selected folder, never uploaded by Ollama):\n" + sections.joined(separator: "\n\n")
     }
 
     private static func readKey() -> String? {
@@ -348,7 +384,7 @@ struct TauronAssistantView: View {
                             VStack(alignment: .leading, spacing: 5) {
                                 Text(message.role.uppercased())
                                     .font(.system(size: 10, weight: .bold, design: .monospaced))
-                                    .foregroundStyle(message.role == "Gemini" ? .purple : .secondary)
+                                    .foregroundStyle(message.role == "Tauron AI" ? .purple : .secondary)
                                 Text(message.text)
                                     .font(.system(size: 13))
                                     .textSelection(.enabled)
@@ -410,7 +446,7 @@ struct TauronAssistantView: View {
                 SecureField(assistant.hasAPIKey ? "Enter a replacement API key" : "Paste API key", text: $keyDraft)
                     .textFieldStyle(.roundedBorder)
             } else {
-                Text("Ollama runs an AI model on this Mac. Prompts, attached files, and saved memories stay local with this provider.")
+                Text("Ollama runs an open model on this Mac. Tauron AI uses the selected folder’s readable source files as extra context, alongside attachments and saved notes. Nothing is sent to Gemini with this provider. Install Ollama and download a model once; Ollama can then answer offline.")
                     .fixedSize(horizontal: false, vertical: true)
                 Link("Install Ollama", destination: URL(string: "https://ollama.com/download")!)
                 TextField("Installed Ollama model name", text: $assistant.localModel)

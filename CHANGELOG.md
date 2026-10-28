@@ -1,5 +1,11 @@
 # Tauron Changelog
 
+## 0.6.0 — Local-first Tauron AI and Tauron file icons
+
+- Make Ollama the default AI provider so Tauron AI works without a Gemini account or API key.
+- Give the on-device model bounded, read-only context from source and Tauron files in the selected folder; replies are branded Tauron AI for either provider.
+- Register `.tauron` and `.tau` as Tauron source files and show the Tauron icon in Finder.
+
 ## 0.5.2 — Tauron AI typing animation
 
 - Animate AI replies character by character and keep the latest text in view while it types.
