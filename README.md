@@ -26,7 +26,7 @@ touch first.txt
 
 Tauron currently handles one command per line. Use quotes around arguments that contain spaces. `rm` removes files; it refuses to remove directories. This starter intentionally runs Tauron built-ins only: it does not execute arbitrary shell commands or support pipes and redirection yet.
 
-On launch, Tauron shows an ASCII title screen and a short status sequence before the prompt.
+Tauron Desktop opens as a separate window with a scrollable command area and a live Mac folder browser.
 
 ## Tauron Mod Language
 
@@ -51,6 +51,8 @@ Within a command, `{args}` expands to all arguments, `{mod}` to the mod name, `{
 ## Install and updates on macOS
 
 For a fresh install, download `tauron-macos.zip` from the [Tauron releases page](https://github.com/krgkonekpro04-cpu/tauron-terminal/releases), extract it, and open `install.command`. It installs Tauron under `~/Library/Application Support/Tauron`, adds **Tauron.app** to `~/Applications`, and creates the stable launcher `~/bin/tauron`. Launch with `~/bin/tauron`. Tauron checks for a new release each time it launches, installs it automatically when available, then starts. You do not need to visit GitHub or change the launch command to update.
+
+If you already installed the earlier command-line-only Tauron, run the new `install.command` once to switch the same `~/bin/tauron` launcher over to Tauron Desktop. Later updates are automatic.
 
 The left pane browses your Mac folders. Choose a folder or double-click one in the list; Tauron's `ls`, `cat`, `touch`, `cp`, `mv`, and other file commands operate directly on files in that folder. There is no separate copy or cloud sync: changes are made to the selected Mac files immediately.
 
