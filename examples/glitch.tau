@@ -1,0 +1,20 @@
+# A cyber-console themed Tauron mod.
+mod glitch
+
+command glitch "Show a glitchy welcome"
+  say "╔══════════════════════════════╗"
+  say "║      T A U R O N   O S      ║"
+  say "╠══════════════════════════════╣"
+  say "║  SIGNAL: ONLINE              ║"
+  say "║  USER: {1}                   ║"
+  say "╚══════════════════════════════╝"
+  say "Welcome to the grid, {1}."
+end
+
+command scan "Display a pretend system scan"
+  say "[SCAN] Initializing..."
+  repeat 3
+    say "[SCAN] Searching sector {1}..."
+  done
+  say "[SCAN] Scan complete. No threats found."
+end
