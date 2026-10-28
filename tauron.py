@@ -5,8 +5,10 @@ from __future__ import annotations
 
 import datetime
 import os
+import signal
 import shlex
 import shutil
+import subprocess
 import sys
 import time
 from pathlib import Path
@@ -348,6 +350,19 @@ class Tauron:
     def startup(self) -> None:
         """Show a short cyber-console boot screen before the prompt."""
         if os.getenv("TAURON_GUI") == "1":
+            # Older native app builds do not know how to restart after their
+            # updater replaces the app bundle. The updated command engine is
+            # launched immediately afterward, so hand off to the new app here.
+            if not os.getenv("TAURON_APP_VERSION"):
+                app = Path.home() / "Applications" / "Tauron.app"
+                if app.exists():
+                    try:
+                        subprocess.Popen(["/usr/bin/open", "-n", str(app)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                        os.kill(os.getppid(), signal.SIGTERM)
+                        self.running = False
+                        return
+                    except OSError:
+                        pass
             self.out("Tauron command engine ready. Type 'help' to list commands.")
             return
         green, dim, reset, cyan = "\033[92m", "\033[2m", "\033[0m", "\033[96m"
