@@ -3,7 +3,11 @@
 from __future__ import annotations
 
 import json
+import ctypes
+import os
+import signal
 import shutil
+import subprocess
 import sys
 import tempfile
 import urllib.error
@@ -12,6 +16,36 @@ import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
+
+
+def running_native_app(pid: int) -> bool:
+    """Identify older Tauron app processes that cannot handle the update exit code."""
+    try:
+        libproc = ctypes.CDLL("/usr/lib/libproc.dylib")
+        proc_pidpath = libproc.proc_pidpath
+        proc_pidpath.argtypes = [ctypes.c_int, ctypes.c_void_p, ctypes.c_uint32]
+        proc_pidpath.restype = ctypes.c_int
+        buffer = ctypes.create_string_buffer(4096)
+        if proc_pidpath(pid, buffer, len(buffer)) <= 0:
+            return False
+        path = os.fsdecode(buffer.value)
+        return path.endswith(".app/Contents/MacOS/Tauron")
+    except (AttributeError, OSError):
+        return False
+
+
+def handoff_older_app() -> None:
+    """Open the updated bundle and stop a pre-0.4.1 native parent process."""
+    parent = os.getppid()
+    if os.environ.get("TAURON_MANAGED_RELAUNCH") == "1" or not running_native_app(parent):
+        return
+    app = Path.home() / "Applications" / "Tauron.app"
+    try:
+        subprocess.Popen(["/usr/bin/open", "-n", str(app)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        os.kill(parent, signal.SIGTERM)
+    except OSError:
+        # Keep the old app alive if the new app could not be launched.
+        return
 
 
 def version_key(value: str) -> tuple[int, ...]:
@@ -67,6 +101,7 @@ def main() -> bool:
                 else:
                     shutil.copy2(source, target)
         print(f"Tauron updated to {latest}.")
+        handoff_older_app()
         return True
     except (OSError, ValueError, KeyError, json.JSONDecodeError, zipfile.BadZipFile, urllib.error.URLError):
         # Offline or unavailable update service must never prevent Tauron from starting.
