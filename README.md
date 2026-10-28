@@ -6,7 +6,7 @@ Tauron is a small command language with its own interactive terminal. It is an e
 
 Install the downloaded release with `install.command` once. Then open **Tauron.app** from `~/Applications`, or run `~/bin/tauron`. Tauron opens in its own window and does not use the macOS Terminal app.
 
-Tauron Desktop requires Python 3 with Tkinter available. The app uses Python to run Tauron's command engine.
+Tauron Desktop uses a native macOS interface and Python 3 to run Tauron's command engine. Tkinter is not required.
 
 ## Commands
 
