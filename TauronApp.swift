@@ -25,12 +25,23 @@ final class TauronSession: ObservableObject {
         started = true
         refreshFiles()
 
+        guard let python = pythonExecutable() else {
+            append("Tauron needs Python 3. Install Python 3, then reopen Tauron.\n")
+            return
+        }
+
         let updateProcess = Process()
         updater = updateProcess
-        updateProcess.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-        updateProcess.arguments = ["python3", supportDirectory.appendingPathComponent("tauron-updater.py").path]
-        updateProcess.terminationHandler = { [weak self] _ in
-            DispatchQueue.main.async { self?.launchCommandEngine() }
+        updateProcess.executableURL = python
+        updateProcess.arguments = [supportDirectory.appendingPathComponent("tauron-updater.py").path]
+        updateProcess.terminationHandler = { [weak self] process in
+            DispatchQueue.main.async {
+                if process.terminationStatus == 10 {
+                    self?.relaunchUpdatedApp()
+                } else {
+                    self?.launchCommandEngine()
+                }
+            }
         }
         do {
             try updateProcess.run()
@@ -77,14 +88,18 @@ final class TauronSession: ObservableObject {
     var promptText: String { "tauron:\(currentDirectory.lastPathComponent) $ " }
 
     private func launchCommandEngine() {
+        guard let python = pythonExecutable() else {
+            append("Tauron needs Python 3. Install Python 3, then reopen Tauron.\n")
+            return
+        }
         let engine = Process()
         process = engine
         let outputPipe = Pipe()
         let errorPipe = Pipe()
         let commandPipe = Pipe()
         inputPipe = commandPipe
-        engine.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-        engine.arguments = ["python3", supportDirectory.appendingPathComponent("tauron.py").path]
+        engine.executableURL = python
+        engine.arguments = [supportDirectory.appendingPathComponent("tauron.py").path]
         engine.currentDirectoryURL = currentDirectory
         var environment = ProcessInfo.processInfo.environment
         environment["TAURON_GUI"] = "1"
@@ -111,6 +126,40 @@ final class TauronSession: ObservableObject {
             append("TAURON DESKTOP  //  Ready\nChoose a Mac folder or type help to begin.\n\n")
         } catch {
             append("Could not start Tauron’s command engine. Make sure Python 3 is installed.\n\(error.localizedDescription)\n")
+        }
+    }
+
+    private func pythonExecutable() -> URL? {
+        let manager = FileManager.default
+        var candidates = [
+            "/opt/homebrew/bin/python3",
+            "/usr/local/bin/python3",
+            "/Library/Frameworks/Python.framework/Versions/Current/bin/python3",
+            "/opt/local/bin/python3",
+            "/usr/bin/python3",
+        ]
+        candidates.append(contentsOf: (ProcessInfo.processInfo.environment["PATH"] ?? "")
+            .split(separator: ":")
+            .map { URL(fileURLWithPath: String($0)).appendingPathComponent("python3").path })
+        if let path = candidates.first(where: { manager.isExecutableFile(atPath: $0) }) {
+            return URL(fileURLWithPath: path)
+        }
+        return nil
+    }
+
+    private func relaunchUpdatedApp() {
+        let installedApp = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Applications/Tauron.app", isDirectory: true)
+        let app = FileManager.default.fileExists(atPath: installedApp.path) ? installedApp : Bundle.main.bundleURL
+        let opener = Process()
+        opener.executableURL = URL(fileURLWithPath: "/usr/bin/open")
+        opener.arguments = ["-n", app.path]
+        do {
+            try opener.run()
+            NSApp.terminate(nil)
+        } catch {
+            append("Tauron updated. Quit and reopen the app to finish updating.\n")
+            launchCommandEngine()
         }
     }
 
