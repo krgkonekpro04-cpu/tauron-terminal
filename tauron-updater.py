@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import shutil
+import sys
 import tempfile
 import urllib.error
 import urllib.request
@@ -20,12 +21,12 @@ def version_key(value: str) -> tuple[int, ...]:
         return ()
 
 
-def main() -> None:
+def main() -> bool:
     try:
         config = json.loads((ROOT / "update-config.json").read_text(encoding="utf-8"))
         repo = config.get("github_repository", "").strip()
         if not repo or "/" not in repo:
-            return
+            return False
         request = urllib.request.Request(
             f"https://api.github.com/repos/{repo}/releases/latest",
             headers={"Accept": "application/vnd.github+json", "User-Agent": "Tauron-Updater"},
@@ -35,10 +36,10 @@ def main() -> None:
         latest = release.get("tag_name", "").lstrip("v")
         current = (ROOT / "VERSION").read_text(encoding="utf-8").strip()
         if not latest or version_key(latest) <= version_key(current):
-            return
+            return False
         asset = next((item for item in release.get("assets", []) if item.get("name") == "tauron-macos.zip"), None)
         if not asset:
-            return
+            return False
         req = urllib.request.Request(asset["browser_download_url"], headers={"User-Agent": "Tauron-Updater"})
         with urllib.request.urlopen(req, timeout=15) as response:
             payload = response.read(20_000_000)
@@ -66,10 +67,13 @@ def main() -> None:
                 else:
                     shutil.copy2(source, target)
         print(f"Tauron updated to {latest}.")
+        return True
     except (OSError, ValueError, KeyError, json.JSONDecodeError, zipfile.BadZipFile, urllib.error.URLError):
         # Offline or unavailable update service must never prevent Tauron from starting.
-        return
+        return False
 
 
 if __name__ == "__main__":
-    main()
+    # The native app uses this status to restart into the newly installed bundle.
+    # The older shell launcher ignores the status and opens the installed app itself.
+    sys.exit(10 if main() else 0)
