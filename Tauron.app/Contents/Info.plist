@@ -10,6 +10,8 @@
     <string>Tauron</string>
     <key>CFBundleDisplayName</key>
     <string>Tauron</string>
+    <key>CFBundleIconFile</key>
+    <string>Tauron</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleVersion</key>
