@@ -1,5 +1,10 @@
 # Tauron Changelog
 
+## 0.4.2 — Legacy updater handoff
+
+- Relaunch the app after updating older native Tauron versions that cannot restart themselves.
+- Keep current Tauron releases in control of their own update restart.
+
 ## 0.4.1 — Automatic update startup
 
 - Restart Tauron automatically into an update after the app bundle is replaced.
