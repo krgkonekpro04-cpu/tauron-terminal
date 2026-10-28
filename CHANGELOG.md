@@ -1,5 +1,11 @@
 # Tauron Changelog
 
+## 0.7.0 — Study Mode and image attachments
+
+- Add Study mode for step-by-step school tutoring, practice questions, quizzes, and study help from images.
+- Add image attachments for Gemini and local Ollama models that support vision.
+- Keep Coding mode and its project-context behavior available.
+
 ## 0.6.2 — Faster AI replies and thinking dots
 
 - Speed up the Tauron AI typewriter animation to 3 ms per character.

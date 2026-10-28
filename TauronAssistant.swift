@@ -3,6 +3,7 @@ import Combine
 import Foundation
 import Security
 import SwiftUI
+import UniformTypeIdentifiers
 
 private final class TauronPromptTextView: NSTextView {
     var onSend: (() -> Void)?
@@ -84,9 +85,24 @@ enum TauronAIProvider: String, CaseIterable, Identifiable {
     var label: String { self == .gemini ? "Gemini (optional cloud)" : "Ollama (on this Mac)" }
 }
 
+enum TauronAIMode: String, CaseIterable, Identifiable {
+    case coding
+    case study
+
+    var id: String { rawValue }
+    var label: String { self == .coding ? "Code" : "Study" }
+}
+
+struct TauronAIImage {
+    let id = UUID()
+    let name: String
+    let data: Data
+    let mimeType: String
+}
+
 @MainActor
 final class TauronAIService: ObservableObject {
-    @Published var messages = [TauronAssistantMessage(role: "Tauron", text: "Hi! I can explain Tauron commands, help you write code, and review an attached text file. I only suggest commands and changes; I do not run or apply them.")]
+    @Published var messages = [TauronAssistantMessage(role: "Tauron", text: "Hi! I can help with school subjects, coding, Tauron, and attached images. Choose Study mode for school tutoring.")]
     @Published var draft = ""
     @Published var isWorking = false
     @Published var isTyping = false
@@ -97,6 +113,9 @@ final class TauronAIService: ObservableObject {
     @Published var localModel: String {
         didSet { UserDefaults.standard.set(localModel, forKey: "tauron.ai.ollamaModel") }
     }
+    @Published var mode: TauronAIMode {
+        didSet { UserDefaults.standard.set(mode.rawValue, forKey: "tauron.ai.mode") }
+    }
     @Published var memories: [String] = []
 
     private var apiKey: String? { Self.readKey() }
@@ -106,6 +125,7 @@ final class TauronAIService: ObservableObject {
         // Prefer the on-device provider so Tauron works without a Gemini account or key.
         provider = TauronAIProvider(rawValue: UserDefaults.standard.string(forKey: "tauron.ai.provider") ?? "") ?? .ollama
         localModel = UserDefaults.standard.string(forKey: "tauron.ai.ollamaModel") ?? "gemma4"
+        mode = TauronAIMode(rawValue: UserDefaults.standard.string(forKey: "tauron.ai.mode") ?? "") ?? .coding
         hasAPIKey = apiKey != nil
         memories = Self.readMemories()
     }
@@ -161,23 +181,38 @@ final class TauronAIService: ObservableObject {
         hasAPIKey = false
     }
 
-    func send(directory: URL, attachedFile: String?) async {
-        let question = draft.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !question.isEmpty, !isWorking else { return }
+    func send(directory: URL, attachedFile: String?, attachedImage: TauronAIImage?) async {
+        var question = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard (!question.isEmpty || attachedImage != nil), !isWorking else { return }
+        if question.isEmpty {
+            question = mode == .study
+                ? "Please explain this image as a study aid and describe any clearly readable text."
+                : "Please analyze the attached image and explain what it shows."
+        }
         guard provider == .ollama || apiKey != nil else {
             messages.append(TauronAssistantMessage(role: "Tauron AI", text: "Connect a Gemini API key in settings, or switch to the local Ollama provider. Tauron AI defaults to Ollama so it can work without Gemini."))
             return
         }
         draft = ""
-        messages.append(TauronAssistantMessage(role: "You", text: question))
+        let userText = question + (attachedImage.map { "\n[Image attached: \($0.name)]" } ?? "")
+        messages.append(TauronAssistantMessage(role: "You", text: userText))
         isWorking = true
         defer { isWorking = false }
 
-        let workspaceContext = provider == .ollama ? Self.localWorkspaceContext(directory) : ""
+        let workspaceContext = provider == .ollama && mode == .coding ? Self.localWorkspaceContext(directory) : ""
+        let modeInstructions: String
+        if mode == .study {
+            modeInstructions = """
+            You are Tauron AI in Study Mode, a patient school-study tutor. Focus on school subjects such as math, science, history, languages, and writing; do not bring up terminals or programming unless the student asks. Explain ideas in clear, age-appropriate steps, check understanding with a short question when useful, and offer practice problems, quizzes, summaries, or flashcards on request. Help the student learn instead of simply completing graded work for them. For attached images, describe diagrams and explain readable worksheet or notebook content; say when text is too blurry or uncertain rather than guessing. Adapt to the student's grade level if they tell you. Do not ask for a student's real name, school name, address, or other personal details.
+            """
+        } else {
+            modeInstructions = """
+            You are Tauron AI in Coding Mode, a careful coding and Tauron terminal assistant. Help with macOS programming, the Tauron command language and mods, and safe file-work workflows. Explain your reasoning briefly, inspect supplied project context before proposing edits, point out likely bugs, and give complete, runnable examples when useful. Ask a focused question when a missing detail changes the answer. Tauron is a custom command interpreter: it does not run arbitrary shell commands, pipes, or redirection.
+            """
+        }
         let systemPrompt = """
-        You are Tauron AI, a careful coding and terminal assistant. Help with macOS programming, beginner-friendly coding, the Tauron command language, Tauron mods (.tau and .tauron), and safe file-work workflows. Explain your reasoning briefly, inspect the supplied project context before proposing edits, point out likely bugs, and give complete, runnable examples when useful. Ask a focused question when a missing detail changes the answer.
-
-        Tauron commands include help, ls, cd, cat, mkdir, touch, cp, mv, rm, find, mod, and changelog. Tauron is a custom command interpreter: it does not run arbitrary shell commands, pipes, or redirection. Never claim that you ran a command or changed a file. Do not ask for passwords, API keys, or other secrets. Clearly label destructive commands and explain what they remove or overwrite.
+        \(modeInstructions)
+        Never claim that you ran a command or changed a file. Do not ask for passwords, API keys, or other secrets. Clearly label destructive commands and explain what they remove or overwrite.
 
         Current Tauron folder: \(directory.path)
         User-approved local notes to remember between chats:
@@ -186,8 +221,13 @@ final class TauronAIService: ObservableObject {
         \(attachedFile ?? "No file is attached.")
         """
 
+        let lastMessageID = messages.last?.id
         let recent = messages.suffix(13).map { message -> [String: Any] in
-            ["role": message.role == "You" ? "user" : "model", "parts": [["text": message.text]]]
+            var parts: [[String: Any]] = [["text": message.text]]
+            if message.id == lastMessageID, message.role == "You", let attachedImage {
+                parts.append(["inlineData": ["mimeType": attachedImage.mimeType, "data": attachedImage.data.base64EncodedString()]])
+            }
+            return ["role": message.role == "You" ? "user" : "model", "parts": parts]
         }
         let body: [String: Any] = [
             "systemInstruction": ["parts": [["text": systemPrompt]]],
@@ -201,9 +241,13 @@ final class TauronAIService: ObservableObject {
             requestBody = body
         } else {
             requestURL = URL(string: "http://localhost:11434/api/chat")
-            let localMessages: [[String: Any]] = [["role": "system", "content": systemPrompt]] + recent.map { message in
+            var localMessages: [[String: Any]] = [["role": "system", "content": systemPrompt]] + recent.map { message in
                 ["role": (message["role"] as? String) == "user" ? "user" : "assistant",
                  "content": ((message["parts"] as? [[String: Any]])?.first?["text"] as? String) ?? ""]
+            }
+            if let attachedImage,
+               let index = localMessages.lastIndex(where: { ($0["role"] as? String) == "user" }) {
+                localMessages[index]["images"] = [attachedImage.data.base64EncodedString()]
             }
             requestBody = ["model": localModel.trimmingCharacters(in: .whitespacesAndNewlines), "messages": localMessages, "stream": false]
         }
@@ -227,9 +271,14 @@ final class TauronAIService: ObservableObject {
                 let message = (try? JSONSerialization.jsonObject(with: data) as? [String: Any])
                     .flatMap { $0["error"] as? [String: Any] }
                     .flatMap { $0["message"] as? String }
-                let fallback = provider == .gemini
-                    ? "Check the key, internet connection, and Gemini API access."
-                    : "Make sure Ollama is running and the selected model is installed."
+                let fallback: String
+                if provider == .gemini {
+                    fallback = "Check the key, internet connection, and Gemini API access."
+                } else if attachedImage != nil {
+                    fallback = "Make sure Ollama is running with an installed vision-capable model."
+                } else {
+                    fallback = "Make sure Ollama is running and the selected model is installed."
+                }
                 throw GeminiError.requestFailed(http.statusCode, message ?? fallback)
             }
             let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
@@ -357,6 +406,8 @@ struct TauronAssistantView: View {
     @State private var memoryDraft = ""
     @State private var attachedFile: String?
     @State private var attachedName: String?
+    @State private var attachedImage: TauronAIImage?
+    @State private var attachmentError: String?
     @State private var keyMessage: String?
 
     var body: some View {
@@ -365,6 +416,9 @@ struct TauronAssistantView: View {
                 Image(systemName: "sparkles").foregroundStyle(.purple)
                 Text("TAURON AI").font(.system(size: 12, weight: .bold, design: .monospaced))
                 Spacer()
+                Picker("AI mode", selection: $assistant.mode) {
+                    ForEach(TauronAIMode.allCases) { mode in Text(mode.label).tag(mode) }
+                }.pickerStyle(.menu).frame(width: 82)
                 Picker("AI provider", selection: $assistant.provider) {
                     ForEach(TauronAIProvider.allCases) { provider in Text(provider.label).tag(provider) }
                 }.pickerStyle(.menu).frame(width: 155)
@@ -409,31 +463,50 @@ struct TauronAssistantView: View {
                 }
             }
 
-            if let attachedName {
+            if let attachmentError {
+                Text(attachmentError).font(.system(size: 11)).foregroundStyle(.red)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 12).padding(.top, 6)
+            }
+            if attachedName != nil || attachedImage != nil {
                 HStack {
-                    Label("Attached: \(attachedName)", systemImage: "doc.text")
-                        .lineLimit(1).truncationMode(.middle)
+                    if let attachedName {
+                        Label("\(attachedName)", systemImage: "doc.text")
+                            .lineLimit(1).truncationMode(.middle)
+                    }
+                    if let attachedImage {
+                        Label("\(attachedImage.name)", systemImage: "photo")
+                            .lineLimit(1).truncationMode(.middle)
+                    }
                     Spacer()
-                    Button { self.attachedName = nil; attachedFile = nil } label: { Image(systemName: "xmark.circle.fill") }
-                        .buttonStyle(.plain)
+                    Button {
+                        attachedName = nil; attachedFile = nil
+                        attachedImage = nil
+                    } label: { Image(systemName: "xmark.circle.fill") }
+                        .buttonStyle(.plain).help("Remove attachments")
+                        .disabled(assistant.isWorking)
                 }.font(.system(size: 11)).padding(.horizontal, 12).padding(.vertical, 6)
             }
             Divider()
             HStack(alignment: .bottom, spacing: 8) {
                 Button { attachFile() } label: { Image(systemName: "paperclip") }
                     .help("Attach a text or code file for Tauron AI to review")
+                    .disabled(assistant.isWorking)
+                Button { attachImage() } label: { Image(systemName: "photo") }
+                    .help("Attach an image for Tauron AI to understand")
+                    .disabled(assistant.isWorking)
                 ZStack(alignment: .topLeading) {
                     TauronPromptEditor(text: $assistant.draft, onSend: send)
                         .frame(height: 62)
                     if assistant.draft.isEmpty {
-                        Text("Ask Tauron AI about code or a terminal task…")
+                        Text(assistant.mode == .study ? "Ask about a school subject or attach an image…" : "Ask Tauron AI about code or a terminal task…")
                             .font(.system(size: 12)).foregroundStyle(.secondary)
                             .padding(.leading, 5).padding(.top, 8)
                             .allowsHitTesting(false)
                     }
                 }
                 Button { send() } label: { Image(systemName: "arrow.up.circle.fill").font(.system(size: 22)) }
-                    .disabled(assistant.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || assistant.isWorking)
+                    .disabled((assistant.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && attachedImage == nil) || assistant.isWorking)
             }.padding(12)
         }
         .sheet(isPresented: $showKeySetup) { providerSetupSheet }
@@ -447,13 +520,13 @@ struct TauronAssistantView: View {
                 ForEach(TauronAIProvider.allCases) { provider in Text(provider.label).tag(provider) }
             }.pickerStyle(.segmented)
             if assistant.provider == .gemini {
-                Text("Use your own Google AI Studio API key. Tauron stores it in macOS Keychain. Prompts, attached files, and saved memories are sent directly to Google's Gemini API.")
+                Text("Use your own Google AI Studio API key. Tauron stores it in macOS Keychain. Prompts, attached files and images, and saved memories are sent directly to Google's Gemini API.")
                     .fixedSize(horizontal: false, vertical: true)
                 Link("Get a Gemini API key", destination: URL(string: "https://aistudio.google.com/app/apikey")!)
                 SecureField(assistant.hasAPIKey ? "Enter a replacement API key" : "Paste API key", text: $keyDraft)
                     .textFieldStyle(.roundedBorder)
             } else {
-                Text("Ollama is the model runner; it runs an open model on this Mac. Download a model in Ollama, then Tauron can use it locally, including offline. This makes Tauron independent from Gemini, but the model itself is not created or trained by Tauron. Prompts and selected-folder context stay on this Mac with the local provider.")
+                Text("Ollama is the model runner; it runs an open model on this Mac. Download a model in Ollama, then Tauron can use it locally, including offline. This makes Tauron independent from Gemini, but the model itself is not created or trained by Tauron. Prompts and selected-folder context stay on this Mac with the local provider. To ask questions about images, the Ollama model must support vision.")
                     .fixedSize(horizontal: false, vertical: true)
                 Link("Install Ollama", destination: URL(string: "https://ollama.com/download")!)
                 TextField("Installed Ollama model name", text: $assistant.localModel)
@@ -528,12 +601,51 @@ struct TauronAssistantView: View {
             }
             attachedName = url.lastPathComponent
             attachedFile = "Attached file: \(url.lastPathComponent)\n```\n\(text)\n```"
+            attachmentError = nil
         } catch {
-            keyMessage = "Could not read that file: \(error.localizedDescription)"
+            attachmentError = "Could not read that file: \(error.localizedDescription)"
+        }
+    }
+
+    private func attachImage() {
+        let panel = NSOpenPanel()
+        panel.title = "Attach an image for Tauron AI"
+        panel.prompt = "Attach Image"
+        panel.canChooseDirectories = false
+        panel.canChooseFiles = true
+        panel.allowsMultipleSelection = false
+        panel.allowedContentTypes = [.image]
+        panel.directoryURL = directory
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        let mimeType: String
+        switch url.pathExtension.lowercased() {
+        case "png": mimeType = "image/png"
+        case "jpg", "jpeg": mimeType = "image/jpeg"
+        case "gif": mimeType = "image/gif"
+        case "webp": mimeType = "image/webp"
+        default:
+            attachmentError = "Choose a PNG, JPEG, GIF, or WebP image."
+            return
+        }
+        do {
+            let data = try Data(contentsOf: url)
+            guard data.count <= 10 * 1024 * 1024 else {
+                attachmentError = "Images must be 10 MB or smaller."
+                return
+            }
+            attachedImage = TauronAIImage(name: url.lastPathComponent, data: data, mimeType: mimeType)
+            attachmentError = nil
+        } catch {
+            attachmentError = "Could not read that image: \(error.localizedDescription)"
         }
     }
 
     private func send() {
-        Task { await assistant.send(directory: directory, attachedFile: attachedFile) }
+        let sentFile = attachedFile
+        let sentImage = attachedImage
+        Task {
+            await assistant.send(directory: directory, attachedFile: sentFile, attachedImage: sentImage)
+            attachedFile = nil; attachedName = nil; attachedImage = nil
+        }
     }
 }
