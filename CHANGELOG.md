@@ -1,5 +1,10 @@
 # Tauron Changelog
 
+## 0.4.1 — Automatic update startup
+
+- Restart Tauron automatically into an update after the app bundle is replaced.
+- Find Python 3 in common macOS install locations when Tauron is opened from Finder.
+
 ## 0.4.0 — Gemini assistant
 
 - Added an optional Gemini coding and Tauron command assistant to Tauron Desktop.
