@@ -1,5 +1,9 @@
 # Tauron Changelog
 
+## 0.4.3 — Update handoff for older apps
+
+- Added a compatibility handoff so older desktop builds open the newly updated app on their first update launch.
+
 ## 0.4.2 — Legacy updater handoff
 
 - Relaunch the app after updating older native Tauron versions that cannot restart themselves.
