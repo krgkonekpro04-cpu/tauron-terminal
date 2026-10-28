@@ -106,6 +106,7 @@ final class TauronSession: ObservableObject {
         engine.currentDirectoryURL = currentDirectory
         var environment = ProcessInfo.processInfo.environment
         environment["TAURON_GUI"] = "1"
+        environment["TAURON_APP_VERSION"] = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "unknown"
         engine.environment = environment
         engine.standardInput = commandPipe
         engine.standardOutput = outputPipe
