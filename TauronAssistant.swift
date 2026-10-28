@@ -73,7 +73,7 @@ private struct TauronPromptEditor: NSViewRepresentable {
 struct TauronAssistantMessage: Identifiable {
     let id = UUID()
     let role: String
-    let text: String
+    var text: String
 }
 
 enum TauronAIProvider: String, CaseIterable, Identifiable {
@@ -89,6 +89,7 @@ final class TauronAIService: ObservableObject {
     @Published var messages = [TauronAssistantMessage(role: "Tauron", text: "Hi! I can explain Tauron commands, help you write code, and review an attached text file. I only suggest commands and changes; I do not run or apply them.")]
     @Published var draft = ""
     @Published var isWorking = false
+    @Published var isTyping = false
     @Published private(set) var hasAPIKey = false
     @Published var provider: TauronAIProvider {
         didSet { UserDefaults.standard.set(provider.rawValue, forKey: "tauron.ai.provider") }
@@ -99,6 +100,7 @@ final class TauronAIService: ObservableObject {
     @Published var memories: [String] = []
 
     private var apiKey: String? { Self.readKey() }
+    var latestMessageText: String { messages.last?.text ?? "" }
 
     init() {
         provider = TauronAIProvider(rawValue: UserDefaults.standard.string(forKey: "tauron.ai.provider") ?? "") ?? .gemini
@@ -237,10 +239,25 @@ final class TauronAIService: ObservableObject {
                 answer = message?["content"] as? String
             }
             guard let answer, !answer.isEmpty else { throw GeminiError.emptyResponse }
-            messages.append(TauronAssistantMessage(role: provider == .gemini ? "Gemini" : "Tauron AI · Local", text: answer))
+            await typeOut(answer, role: provider == .gemini ? "Gemini" : "Tauron AI · Local")
         } catch {
             let service = provider == .gemini ? "Gemini" : "Ollama"
             messages.append(TauronAssistantMessage(role: "Tauron AI", text: "\(service) request failed: \(error.localizedDescription)"))
+        }
+    }
+
+    private func typeOut(_ text: String, role: String) async {
+        let message = TauronAssistantMessage(role: role, text: "")
+        messages.append(message)
+        isTyping = true
+        defer { isTyping = false }
+        for character in text {
+            if Task.isCancelled { break }
+            guard let index = messages.firstIndex(where: { $0.id == message.id }) else { return }
+            var updated = messages[index]
+            updated.text.append(character)
+            messages[index] = updated
+            try? await Task.sleep(nanoseconds: 18_000_000)
         }
     }
 
@@ -338,13 +355,13 @@ struct TauronAssistantView: View {
                                     .frame(maxWidth: .infinity, alignment: .leading)
                             }.id(message.id)
                         }
-                        if assistant.isWorking {
+                        if assistant.isWorking && !assistant.isTyping {
                             HStack(spacing: 8) { ProgressView().controlSize(.small); Text("Tauron AI is thinking…") }
                                 .font(.system(size: 12)).foregroundStyle(.secondary)
                         }
                     }.padding(18)
                 }
-                .onChange(of: assistant.messages.count) { _ in
+                .onChange(of: assistant.latestMessageText) { _ in
                     if let last = assistant.messages.last { proxy.scrollTo(last.id, anchor: .bottom) }
                 }
             }
