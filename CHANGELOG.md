@@ -1,5 +1,11 @@
 # Tauron Changelog
 
+## 0.4.0 — Gemini assistant
+
+- Added an optional Gemini coding and Tauron command assistant to Tauron Desktop.
+- Added secure API key storage in macOS Keychain and text/code file attachments for review.
+- Assistant responses are suggestions; Tauron does not execute AI-generated commands or apply AI edits.
+
 ## 0.3.0 — Native macOS interface
 
 - Replaced the blank desktop window with a native SwiftUI macOS app.
