@@ -34,6 +34,9 @@ final class TauronSession: ObservableObject {
         updater = updateProcess
         updateProcess.executableURL = python
         updateProcess.arguments = [supportDirectory.appendingPathComponent("tauron-updater.py").path]
+        var updaterEnvironment = ProcessInfo.processInfo.environment
+        updaterEnvironment["TAURON_MANAGED_RELAUNCH"] = "1"
+        updateProcess.environment = updaterEnvironment
         updateProcess.terminationHandler = { [weak self] process in
             DispatchQueue.main.async {
                 if process.terminationStatus == 10 {
