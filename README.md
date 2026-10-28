@@ -8,6 +8,10 @@ Install the downloaded release with `install.command` once. Then open **Tauron.a
 
 Tauron Desktop uses a native macOS interface and Python 3 to run Tauron's command engine. Tkinter is not required.
 
+## Gemini coding assistant
+
+Select **Gemini Assistant** in Tauron Desktop to get help with Tauron commands, `.tau` mods, and coding. Connect your own Gemini API key from Google AI Studio; Tauron stores it in macOS Keychain and sends requests directly to Google's Gemini API. The default model is Gemini 3.1 Flash-Lite, which currently has a free API tier for eligible projects. Google's free-tier rules, availability, and quotas can change. You can ask coding questions or attach a UTF-8 text/code file for review. The assistant suggests commands and edits but does not execute commands or change files.
+
 ## Commands
 
 `help`, `clear`, `pwd`, `ls`, `cd`, `mkdir`, `touch`, `cat`, `echo`, `cp`, `mv`, `rm`, `head`, `tail`, `wc`, `find`, `date`, `whoami`, `history`, `exit`.
