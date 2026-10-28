@@ -1,5 +1,11 @@
 # Tauron Changelog
 
+## 0.2.0 — Tauron Desktop
+
+- Added a separate macOS desktop window with a scrollable command area.
+- Added a Mac folder browser and folder chooser; file commands work directly on the selected folder.
+- Updated the stable `~/bin/tauron` launcher to open Tauron Desktop.
+
 ## 0.1.2 — Launcher permissions
 
 - Fixed executable permissions for the macOS installer and terminal launcher in the release download.
