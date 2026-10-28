@@ -178,6 +178,8 @@ final class TauronSession: ObservableObject {
 
 struct TauronWindow: View {
     @StateObject private var session = TauronSession()
+    @StateObject private var assistant = TauronGeminiAssistant()
+    @State private var showAssistant = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -185,8 +187,12 @@ struct TauronWindow: View {
                 Text("TAURON").font(.system(size: 18, weight: .bold, design: .monospaced))
                 Text("Desktop Terminal").foregroundStyle(.secondary)
                 Spacer()
-                Label("Mac files · direct", systemImage: "externaldrive")
-                    .font(.system(size: 12)).foregroundStyle(.secondary)
+                Button { showAssistant = false } label: { Label("Terminal", systemImage: "terminal") }
+                    .buttonStyle(.borderedProminent)
+                    .tint(showAssistant ? .secondary : .accentColor)
+                Button { showAssistant = true } label: { Label("Gemini Assistant", systemImage: "sparkles") }
+                    .buttonStyle(.borderedProminent)
+                    .tint(showAssistant ? .accentColor : .secondary)
             }
             .padding(.horizontal, 18).padding(.vertical, 14)
             Divider()
@@ -194,7 +200,11 @@ struct TauronWindow: View {
                 fileSidebar
                     .frame(width: 270)
                 Divider()
-                terminalPanel
+                if showAssistant {
+                    TauronAssistantView(assistant: assistant, directory: session.currentDirectory)
+                } else {
+                    terminalPanel
+                }
             }
             Divider()
             HStack {
@@ -204,7 +214,7 @@ struct TauronWindow: View {
                 Text("Type help for commands").font(.system(size: 11)).foregroundStyle(.secondary)
             }.padding(.horizontal, 16).padding(.vertical, 8)
         }
-        .frame(minWidth: 800, minHeight: 540)
+        .frame(minWidth: 900, minHeight: 540)
         .task { session.start() }
     }
 
