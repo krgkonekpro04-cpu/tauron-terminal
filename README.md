@@ -55,6 +55,6 @@ Within a command, `{args}` expands to all arguments, `{mod}` to the mod name, `{
 
 ## Install and updates on macOS
 
-Run `install.command` once. It installs Tauron under `~/Library/Application Support/Tauron` and creates the stable launcher `~/bin/tauron`. Tauron checks for a new release each time it launches, installs it automatically when available, then starts. You do not need to visit GitHub or change the launch command to update.
+For a fresh install, download `tauron-macos.zip` from the [Tauron releases page](https://github.com/krgkonekpro04-cpu/tauron-terminal/releases), extract it, and open `install.command`. It installs Tauron under `~/Library/Application Support/Tauron` and creates the stable launcher `~/bin/tauron`. Launch with `~/bin/tauron`. Tauron checks for a new release each time it launches, installs it automatically when available, then starts. You do not need to visit GitHub or change the launch command to update.
 
 The startup updater checks the public GitHub Releases location configured in `update-config.json`. Each release must include an asset named `tauron-macos.zip` containing the app files and `CHANGELOG.md`. The updater fails quietly when offline or when no newer release exists. Type `changelog` inside Tauron to read the included release notes.
