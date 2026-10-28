@@ -231,7 +231,7 @@ final class TauronSession: ObservableObject {
 
 struct TauronWindow: View {
     @StateObject private var session = TauronSession()
-    @StateObject private var assistant = TauronGeminiAssistant()
+    @StateObject private var assistant = TauronAIService()
     @State private var showAssistant = false
 
     var body: some View {
@@ -243,7 +243,7 @@ struct TauronWindow: View {
                 Button { showAssistant = false } label: { Label("Terminal", systemImage: "terminal") }
                     .buttonStyle(.borderedProminent)
                     .tint(showAssistant ? .secondary : .accentColor)
-                Button { showAssistant = true } label: { Label("Gemini Assistant", systemImage: "sparkles") }
+                Button { showAssistant = true } label: { Label("Tauron AI", systemImage: "sparkles") }
                     .buttonStyle(.borderedProminent)
                     .tint(showAssistant ? .accentColor : .secondary)
             }
