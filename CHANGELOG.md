@@ -1,5 +1,9 @@
 # Tauron Changelog
 
+## 0.2.1 — Desktop app launch
+
+- Fixed the standalone app executable permission in the downloadable release.
+
 ## 0.2.0 — Tauron Desktop
 
 - Added a separate macOS desktop window with a scrollable command area.
