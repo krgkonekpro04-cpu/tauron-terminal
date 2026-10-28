@@ -1,5 +1,9 @@
 # Tauron Changelog
 
+## 0.5.1 — Multiline Tauron AI input
+
+- Press Return to send an AI prompt; press Shift+Return to add a line.
+
 ## 0.5.0 — Tauron AI with local models and memory
 
 - Renamed Gemini Assistant to Tauron AI.
