@@ -1,0 +1,11 @@
+# A Tauron Mod Language example. Save it as a .tau file.
+mod hello
+
+command greet "Greet someone by name"
+  say "Hello, {1}! Welcome to Tauron."
+end
+
+command about "Show what this mod can do"
+  say "This is the {mod} mod."
+  say "Pass a name to greet: greet Ada"
+end
