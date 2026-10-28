@@ -1,5 +1,11 @@
 # Tauron Changelog
 
+## 0.6.1 — In-app Terms of Service
+
+- Show Tauron's Terms of Service on first launch with Learn More, Accept, and Reject actions.
+- Require acceptance before the terminal and updater start; choosing Reject closes the app.
+- Include the complete terms in the app bundle and repository.
+
 ## 0.6.0 — Local-first Tauron AI and Tauron file icons
 
 - Make Ollama the default AI provider so Tauron AI works without a Gemini account or API key.

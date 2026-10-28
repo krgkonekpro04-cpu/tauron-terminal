@@ -8,6 +8,8 @@ Install the downloaded release with `install.command` once. Then open **Tauron.a
 
 Tauron Desktop uses a native macOS interface and Python 3 to run Tauron's command engine. Tkinter is not required.
 
+On first launch, Tauron displays its Terms of Service inside the app. Read them there, use **Learn More** for a plain-language summary, then choose **Accept** to continue or **Reject** to close Tauron. Tauron remembers acceptance for that terms version.
+
 ## Tauron AI
 
 Select **Tauron AI** in Tauron Desktop for help with Tauron commands, `.tau`/`.tauron` source files, and coding. **Ollama (on this Mac)** is the default: install Ollama and download a model once, then Tauron can use it locally, including offline. Tauron supplies the local model with up to eight readable source files from the selected folder, plus any file you attach and the notes you saved. This project context is read-only and stays on the Mac with Ollama. **Gemini (optional cloud)** remains available if you choose it and connect your own Google AI Studio API key; prompts and attachments then go to Google's API. Tauron stores that key in macOS Keychain. The assistant suggests commands and edits but does not execute commands or change files.

@@ -233,8 +233,29 @@ struct TauronWindow: View {
     @StateObject private var session = TauronSession()
     @StateObject private var assistant = TauronAIService()
     @State private var showAssistant = false
+    @State private var hasAcceptedTerms = UserDefaults.standard.string(forKey: "tauron.acceptedTermsVersion") == TauronTerms.version
 
     var body: some View {
+        Group {
+            if hasAcceptedTerms {
+                mainInterface
+            } else {
+                TauronTermsAcceptanceView {
+                    UserDefaults.standard.set(TauronTerms.version, forKey: "tauron.acceptedTermsVersion")
+                    hasAcceptedTerms = true
+                    session.start()
+                } onReject: {
+                    NSApp.terminate(nil)
+                }
+            }
+        }
+        .frame(minWidth: 760, minHeight: 540)
+        .task {
+            if hasAcceptedTerms { session.start() }
+        }
+    }
+
+    private var mainInterface: some View {
         VStack(spacing: 0) {
             HStack {
                 Text("TAURON").font(.system(size: 18, weight: .bold, design: .monospaced))
@@ -267,8 +288,6 @@ struct TauronWindow: View {
                 Text("Type help for commands").font(.system(size: 11)).foregroundStyle(.secondary)
             }.padding(.horizontal, 16).padding(.vertical, 8)
         }
-        .frame(minWidth: 900, minHeight: 540)
-        .task { session.start() }
     }
 
     private var fileSidebar: some View {
@@ -311,6 +330,66 @@ struct TauronWindow: View {
             }
             .padding(.horizontal, 12).padding(.vertical, 10)
         }
+    }
+}
+
+private enum TauronTerms {
+    static let version = "1.0"
+
+    static var text: String {
+        let url = Bundle.main.url(forResource: "TERMS_OF_SERVICE", withExtension: "md")
+        return (url.flatMap { try? String(contentsOf: $0, encoding: .utf8) }) ?? "Tauron Terms of Service could not be loaded. Please reinstall Tauron before continuing."
+    }
+}
+
+private struct TauronTermsAcceptanceView: View {
+    let onAccept: () -> Void
+    let onReject: () -> Void
+    @State private var showMore = false
+
+    private var formattedTerms: AttributedString {
+        (try? AttributedString(markdown: TauronTerms.text)) ?? AttributedString(TauronTerms.text)
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 10) {
+                Image(systemName: "terminal.fill").font(.system(size: 24)).foregroundStyle(.purple)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("TAURON").font(.system(size: 17, weight: .bold, design: .monospaced))
+                    Text("Terms of Service · Version \(TauronTerms.version)").foregroundStyle(.secondary)
+                }
+                Spacer()
+            }.padding(20)
+            Divider()
+            ScrollView {
+                Text(formattedTerms)
+                    .font(.system(size: 13))
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(22)
+                if showMore {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("In plain language").font(.headline)
+                        Text("Tauron runs commands on the Mac folder you choose, so review file-changing commands and keep backups. Tauron AI suggestions need your review. Ollama keeps prompts on your Mac; Gemini sends prompts and included context to Google. The updater checks for Tauron releases. You can reject these terms and close the app, or accept to continue.")
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 22).padding(.bottom, 22)
+                }
+            }
+            Divider()
+            HStack {
+                Button("Reject") { onReject() }
+                    .keyboardShortcut(.cancelAction)
+                Button(showMore ? "Hide Details" : "Learn More") { showMore.toggle() }
+                Spacer()
+                Button("Accept") { onAccept() }
+                    .keyboardShortcut(.defaultAction)
+                    .buttonStyle(.borderedProminent)
+            }.padding(16)
+        }
+        .frame(minWidth: 640, minHeight: 500)
     }
 }
 
