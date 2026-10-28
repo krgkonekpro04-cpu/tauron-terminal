@@ -4,20 +4,15 @@ Tauron is a small command language with its own interactive terminal. It is an e
 
 ## Start it on macOS
 
-1. Keep `Tauron.command` and `tauron.py` together in the same folder.
-2. Open `Tauron.command` from Finder, or start Terminal and run:
+Install the downloaded release with `install.command` once. Then open **Tauron.app** from `~/Applications`, or run `~/bin/tauron`. Tauron opens in its own window and does not use the macOS Terminal app.
 
-   ```sh
-   ./Tauron.command
-   ```
-
-If macOS reports that the file is not executable, run `chmod +x Tauron.command` once, then open it again. Python 3 must be installed and available as `python3`.
+Tauron Desktop requires Python 3 with Tkinter available. The app uses Python to run Tauron's command engine.
 
 ## Commands
 
 `help`, `clear`, `pwd`, `ls`, `cd`, `mkdir`, `touch`, `cat`, `echo`, `cp`, `mv`, `rm`, `head`, `tail`, `wc`, `find`, `date`, `whoami`, `history`, `exit`.
 
-Tauron includes 20 core commands, 100 convenience aliases, and the `mod` and `changelog` commands (for example, `dir` works like `ls`, and `quit` works like `exit`). Type `help` to print the full list and scroll through it in Terminal. Type `help <command>` for usage.
+Tauron includes 20 core commands, 100 convenience aliases, and the `mod` and `changelog` commands (for example, `dir` works like `ls`, and `quit` works like `exit`). Type `help` to print the full list and scroll through it in Tauron. Type `help <command>` for usage.
 
 Examples:
 
@@ -55,6 +50,8 @@ Within a command, `{args}` expands to all arguments, `{mod}` to the mod name, `{
 
 ## Install and updates on macOS
 
-For a fresh install, download `tauron-macos.zip` from the [Tauron releases page](https://github.com/krgkonekpro04-cpu/tauron-terminal/releases), extract it, and open `install.command`. It installs Tauron under `~/Library/Application Support/Tauron` and creates the stable launcher `~/bin/tauron`. Launch with `~/bin/tauron`. Tauron checks for a new release each time it launches, installs it automatically when available, then starts. You do not need to visit GitHub or change the launch command to update.
+For a fresh install, download `tauron-macos.zip` from the [Tauron releases page](https://github.com/krgkonekpro04-cpu/tauron-terminal/releases), extract it, and open `install.command`. It installs Tauron under `~/Library/Application Support/Tauron`, adds **Tauron.app** to `~/Applications`, and creates the stable launcher `~/bin/tauron`. Launch with `~/bin/tauron`. Tauron checks for a new release each time it launches, installs it automatically when available, then starts. You do not need to visit GitHub or change the launch command to update.
+
+The left pane browses your Mac folders. Choose a folder or double-click one in the list; Tauron's `ls`, `cat`, `touch`, `cp`, `mv`, and other file commands operate directly on files in that folder. There is no separate copy or cloud sync: changes are made to the selected Mac files immediately.
 
 The startup updater checks the public GitHub Releases location configured in `update-config.json`. Each release must include an asset named `tauron-macos.zip` containing the app files and `CHANGELOG.md`. The updater fails quietly when offline or when no newer release exists. Type `changelog` inside Tauron to read the included release notes.
