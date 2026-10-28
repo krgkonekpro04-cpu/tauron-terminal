@@ -1,5 +1,11 @@
 # Tauron Changelog
 
+## 0.3.0 — Native macOS interface
+
+- Replaced the blank desktop window with a native SwiftUI macOS app.
+- Kept Tauron's command engine and direct Mac folder access in the app.
+- Removed the Tkinter requirement.
+
 ## 0.2.2 — Mac window display
 
 - Switched to native Mac controls so the desktop interface and command output display reliably.
