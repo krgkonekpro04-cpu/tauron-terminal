@@ -12,6 +12,8 @@ Tauron Desktop uses a native macOS interface and Python 3 to run Tauron's comman
 
 Select **Tauron AI** in Tauron Desktop for help with Tauron commands, `.tau` mods, and coding. Choose **Gemini (cloud)** and connect your own Google AI Studio API key, or choose **Ollama (local)** to use a model installed on your Mac without sending prompts to Gemini. Tauron stores the Gemini key in macOS Keychain. Ollama must be installed and running locally, with a model downloaded. You can attach a UTF-8 text/code file for review. The assistant suggests commands and edits but does not execute commands or change files.
 
+In the Tauron AI prompt, press Return to send and Shift+Return to insert a new line.
+
 Tauron AI can remember preferences and project notes you add under **Memory**. Those notes are kept in `~/Library/Application Support/Tauron/ai-memory.json` and can be deleted in the app. This is local memory used as context; it does not change or train model weights. Gemini's current API does not support model fine-tuning. Ollama lets Tauron use a separate local model, and open-weight models can be fine-tuned outside Tauron if you later want to build a genuinely Tauron-trained model.
 
 ## Commands
