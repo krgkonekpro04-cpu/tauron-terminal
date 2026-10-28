@@ -4,6 +4,72 @@ import Foundation
 import Security
 import SwiftUI
 
+private final class TauronPromptTextView: NSTextView {
+    var onSend: (() -> Void)?
+
+    override func keyDown(with event: NSEvent) {
+        if event.keyCode == 36 || event.keyCode == 76 {
+            if event.modifierFlags.contains(.shift) {
+                super.keyDown(with: event)
+            } else {
+                onSend?()
+            }
+            return
+        }
+        super.keyDown(with: event)
+    }
+}
+
+private struct TauronPromptEditor: NSViewRepresentable {
+    @Binding var text: String
+    let onSend: () -> Void
+
+    func makeCoordinator() -> Coordinator { Coordinator(text: $text) }
+
+    func makeNSView(context: Context) -> NSScrollView {
+        let scrollView = NSScrollView()
+        scrollView.hasVerticalScroller = true
+        scrollView.borderType = .noBorder
+        scrollView.drawsBackground = false
+
+        let textView = TauronPromptTextView()
+        textView.delegate = context.coordinator
+        textView.onSend = onSend
+        textView.isRichText = false
+        textView.isAutomaticQuoteSubstitutionEnabled = false
+        textView.isAutomaticDashSubstitutionEnabled = false
+        textView.isVerticallyResizable = true
+        textView.isHorizontallyResizable = false
+        textView.minSize = NSSize(width: 0, height: 0)
+        textView.maxSize = NSSize(width: .greatestFiniteMagnitude, height: .greatestFiniteMagnitude)
+        textView.autoresizingMask = [.width]
+        textView.textContainer?.widthTracksTextView = true
+        textView.textContainerInset = NSSize(width: 5, height: 7)
+        textView.font = .systemFont(ofSize: 12)
+        textView.textColor = .labelColor
+        textView.drawsBackground = false
+        scrollView.documentView = textView
+        return scrollView
+    }
+
+    func updateNSView(_ scrollView: NSScrollView, context: Context) {
+        guard let textView = scrollView.documentView as? TauronPromptTextView else { return }
+        textView.onSend = onSend
+        if textView.string != text { textView.string = text }
+    }
+
+    final class Coordinator: NSObject, NSTextViewDelegate {
+        @Binding private var text: String
+
+        init(text: Binding<String>) { _text = text }
+
+        func textDidChange(_ notification: Notification) {
+            guard let textView = notification.object as? NSTextView else { return }
+            text = textView.string
+        }
+    }
+}
+
 struct TauronAssistantMessage: Identifiable {
     let id = UUID()
     let role: String
@@ -297,8 +363,7 @@ struct TauronAssistantView: View {
                 Button { attachFile() } label: { Image(systemName: "paperclip") }
                     .help("Attach a text or code file for Tauron AI to review")
                 ZStack(alignment: .topLeading) {
-                    TextEditor(text: $assistant.draft)
-                        .font(.system(size: 12))
+                    TauronPromptEditor(text: $assistant.draft, onSend: send)
                         .frame(height: 62)
                     if assistant.draft.isEmpty {
                         Text("Ask Tauron AI about code or a terminal task…")
@@ -309,7 +374,6 @@ struct TauronAssistantView: View {
                 }
                 Button { send() } label: { Image(systemName: "arrow.up.circle.fill").font(.system(size: 22)) }
                     .disabled(assistant.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || assistant.isWorking)
-                    .keyboardShortcut(.return, modifiers: [.command])
             }.padding(12)
         }
         .sheet(isPresented: $showKeySetup) { providerSetupSheet }
