@@ -1,5 +1,11 @@
 # Tauron Changelog
 
+## 0.5.0 — Tauron AI with local models and memory
+
+- Renamed Gemini Assistant to Tauron AI.
+- Added an Ollama local-model provider alongside Gemini.
+- Added editable local memory notes that personalize replies across sessions.
+
 ## 0.4.3 — Update handoff for older apps
 
 - Added a compatibility handoff so older desktop builds open the newly updated app on their first update launch.
