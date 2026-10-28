@@ -3,9 +3,7 @@
 from __future__ import annotations
 
 import json
-import os
 import shutil
-import sys
 import tempfile
 import urllib.error
 import urllib.request
@@ -56,11 +54,13 @@ def main() -> None:
                         raise ValueError("unsafe path in update archive")
                 zf.extractall(stage)
             # Preserve user settings and mod files; only replace packaged program files.
-            for name in ("tauron.py", "Tauron.command", "tauron-updater.py", "VERSION", "CHANGELOG.md", "examples"):
+            for name in ("tauron.py", "tauron_gui.py", "Tauron.command", "tauron-updater.py", "VERSION", "CHANGELOG.md", "examples", "Tauron.app"):
                 source = stage / name
                 if not source.exists():
                     continue
                 target = ROOT / name
+                if name == "Tauron.app":
+                    target = Path.home() / "Applications" / "Tauron.app"
                 if source.is_dir():
                     shutil.copytree(source, target, dirs_exist_ok=True)
                 else:
