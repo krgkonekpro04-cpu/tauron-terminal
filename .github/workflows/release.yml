@@ -8,13 +8,27 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: tauron-release
+  cancel-in-progress: true
+
 jobs:
   release:
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Package macOS install files
-        run: zip -r tauron-macos.zip README.md install.command Tauron.command tauron.py tauron_gui.py tauron-updater.py update-config.json VERSION CHANGELOG.md examples Tauron.app
+      - name: Build native app and package release
+        run: |
+          APP="$RUNNER_TEMP/Tauron.app"
+          PACKAGE="$RUNNER_TEMP/tauron-package"
+          mkdir -p "$APP/Contents/MacOS" "$PACKAGE"
+          cp Tauron.app/Contents/Info.plist "$APP/Contents/Info.plist"
+          swiftc -parse-as-library -swift-version 5 -O -framework SwiftUI -framework AppKit TauronApp.swift -o "$APP/Contents/MacOS/Tauron"
+          chmod +x "$APP/Contents/MacOS/Tauron"
+          cp README.md install.command Tauron.command tauron.py tauron_gui.py tauron-updater.py update-config.json VERSION CHANGELOG.md "$PACKAGE/"
+          cp -R examples "$PACKAGE/examples"
+          cp -R "$APP" "$PACKAGE/Tauron.app"
+          (cd "$PACKAGE" && zip -r "$GITHUB_WORKSPACE/tauron-macos.zip" .)
       - name: Publish release asset
         env:
           GH_TOKEN: ${{ github.token }}
