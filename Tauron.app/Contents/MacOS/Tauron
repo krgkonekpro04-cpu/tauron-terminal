@@ -5,10 +5,6 @@ if [ -z "$PYTHON" ]; then
   /usr/bin/osascript -e 'display alert "Tauron needs Python 3" message "Install Python 3, then open Tauron again."'
   exit 1
 fi
-if ! "$PYTHON" -c 'import tkinter' >/dev/null 2>&1; then
-  /usr/bin/osascript -e 'display alert "Tauron needs Tkinter" message "Install a Python 3 build that includes Tkinter, then open Tauron again."'
-  exit 1
-fi
 if [ -f "$APP/tauron-updater.py" ]; then
   "$PYTHON" "$APP/tauron-updater.py" >/dev/null 2>&1 || true
 fi
