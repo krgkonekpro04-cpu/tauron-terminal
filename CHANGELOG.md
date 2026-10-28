@@ -1,5 +1,11 @@
 # Tauron Changelog
 
+## 0.6.2 — Faster AI replies and thinking dots
+
+- Speed up the Tauron AI typewriter animation to 3 ms per character.
+- Show animated one, two, and three-dot thinking status while the model responds.
+- Clarify that Ollama runs a downloaded model; it does not create or train Tauron's own model.
+
 ## 0.6.1 — In-app Terms of Service
 
 - Show Tauron's Terms of Service on first launch with Learn More, Accept, and Reject actions.

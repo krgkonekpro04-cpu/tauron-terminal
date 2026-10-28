@@ -262,7 +262,7 @@ final class TauronAIService: ObservableObject {
             var updated = messages[index]
             updated.text.append(character)
             messages[index] = updated
-            try? await Task.sleep(nanoseconds: 18_000_000)
+            try? await Task.sleep(nanoseconds: 3_000_000)
         }
     }
 
@@ -392,7 +392,14 @@ struct TauronAssistantView: View {
                             }.id(message.id)
                         }
                         if assistant.isWorking && !assistant.isTyping {
-                            HStack(spacing: 8) { ProgressView().controlSize(.small); Text("Tauron AI is thinking…") }
+                            HStack(spacing: 3) {
+                                Text("Tauron AI is thinking")
+                                TimelineView(.periodic(from: .now, by: 0.3)) { timeline in
+                                    let step = Int(timeline.date.timeIntervalSinceReferenceDate / 0.3) % 3 + 1
+                                    Text(String(repeating: ".", count: step))
+                                        .font(.system(size: 13, weight: .medium, design: .monospaced))
+                                }
+                            }
                                 .font(.system(size: 12)).foregroundStyle(.secondary)
                         }
                     }.padding(18)
@@ -446,7 +453,7 @@ struct TauronAssistantView: View {
                 SecureField(assistant.hasAPIKey ? "Enter a replacement API key" : "Paste API key", text: $keyDraft)
                     .textFieldStyle(.roundedBorder)
             } else {
-                Text("Ollama runs an open model on this Mac. Tauron AI uses the selected folder’s readable source files as extra context, alongside attachments and saved notes. Nothing is sent to Gemini with this provider. Install Ollama and download a model once; Ollama can then answer offline.")
+                Text("Ollama is the model runner; it runs an open model on this Mac. Download a model in Ollama, then Tauron can use it locally, including offline. This makes Tauron independent from Gemini, but the model itself is not created or trained by Tauron. Prompts and selected-folder context stay on this Mac with the local provider.")
                     .fixedSize(horizontal: false, vertical: true)
                 Link("Install Ollama", destination: URL(string: "https://ollama.com/download")!)
                 TextField("Installed Ollama model name", text: $assistant.localModel)
