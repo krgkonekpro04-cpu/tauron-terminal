@@ -347,6 +347,9 @@ class Tauron:
 
     def startup(self) -> None:
         """Show a short cyber-console boot screen before the prompt."""
+        if os.getenv("TAURON_GUI") == "1":
+            self.out("Tauron command engine ready. Type 'help' to list commands.")
+            return
         green, dim, reset, cyan = "\033[92m", "\033[2m", "\033[0m", "\033[96m"
         try:
             version = (Path(__file__).resolve().parent / "VERSION").read_text(encoding="utf-8").strip()
