@@ -41,7 +41,7 @@ private struct TauronPromptEditor: NSViewRepresentable {
         textView.isVerticallyResizable = true
         textView.isHorizontallyResizable = false
         textView.minSize = NSSize(width: 0, height: 0)
-        textView.maxSize = NSSize(width: .greatestFiniteMagnitude, height: .greatestFiniteMagnitude)
+        textView.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
         textView.autoresizingMask = [.width]
         textView.textContainer?.widthTracksTextView = true
         textView.textContainerInset = NSSize(width: 5, height: 7)
