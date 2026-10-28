@@ -1,5 +1,10 @@
 # Tauron Changelog
 
+## 0.2.2 — Mac window display
+
+- Switched to native Mac controls so the desktop interface and command output display reliably.
+- Added scrollbars to the file browser and command output.
+
 ## 0.2.1 — Desktop app launch
 
 - Fixed the standalone app executable permission in the downloadable release.
