@@ -1,5 +1,9 @@
 # Tauron Changelog
 
+## 0.1.2 — Launcher permissions
+
+- Fixed executable permissions for the macOS installer and terminal launcher in the release download.
+
 ## 0.1.1 — Installer and command notes
 
 - Added the `changelog` command.
