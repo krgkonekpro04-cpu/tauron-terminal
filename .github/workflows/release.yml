@@ -1,0 +1,23 @@
+name: Build and publish Tauron release
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Package macOS install files
+        run: zip -r tauron-macos.zip tauron.py Tauron.command tauron-updater.py VERSION CHANGELOG.md examples
+      - name: Publish release asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="v$(cat VERSION)"
+          gh release view "$VERSION" >/dev/null 2>&1 || gh release create "$VERSION" tauron-macos.zip --generate-notes
