@@ -148,7 +148,8 @@ class TauronWindow:
         self.engine.run_line(line)
         self.update_prompt()
         self.refresh_files()
-        if line.split(maxsplit=1)[0] in ("exit", "quit", "bye"):
+        command_name = line.split(maxsplit=1)[0]
+        if command_name == "exit" or self.engine.aliases.get(command_name) == "exit":
             self.root.after(100, self.close)
         return "break"
 
