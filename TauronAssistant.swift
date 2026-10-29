@@ -133,9 +133,10 @@ final class TauronAIService: ObservableObject {
         // Prefer the on-device provider so Tauron works without a Gemini account or key.
         provider = TauronAIProvider(rawValue: UserDefaults.standard.string(forKey: "tauron.ai.provider") ?? "") ?? .ollama
         let savedModel = UserDefaults.standard.string(forKey: "tauron.ai.ollamaModel")
-        localModel = (savedModel == nil || savedModel == "gemma4") ? "qwen3:1.7b" : savedModel!
-        UserDefaults.standard.set(localModel, forKey: "tauron.ai.ollamaModel")
+        let effectiveModel = (savedModel == nil || savedModel == "gemma4") ? "qwen3:1.7b" : savedModel!
+        localModel = effectiveModel
         mode = TauronAIMode(rawValue: UserDefaults.standard.string(forKey: "tauron.ai.mode") ?? "") ?? .coding
+        UserDefaults.standard.set(effectiveModel, forKey: "tauron.ai.ollamaModel")
         hasAPIKey = apiKey != nil
         memories = Self.readMemories()
     }
