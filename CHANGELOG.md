@@ -1,5 +1,10 @@
 # Tauron Changelog
 
+## 1.0.2 — Live changelog
+
+- Make `changelog` fetch the current notes from the Tauron GitHub repository whenever it runs.
+- Fall back to the bundled changelog when the network is unavailable.
+
 ## 1.0.1 — Assistant layout fixes
 
 - Keep the Code/Study and provider dropdown menus above the chat pane so their options are not clipped.

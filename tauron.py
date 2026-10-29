@@ -23,6 +23,8 @@ import subprocess
 import sys
 import time
 import urllib.parse
+import urllib.error
+import urllib.request
 import uuid
 from pathlib import Path
 
@@ -551,10 +553,33 @@ class Tauron:
 
     def changelog(self, args: list[str]) -> None:
         path = Path(__file__).resolve().parent / "CHANGELOG.md"
+        config_path = Path(__file__).resolve().parent / "update-config.json"
         try:
-            self.out(path.read_text(encoding="utf-8").rstrip())
-        except OSError as e:
-            self.out(f"changelog: {e}")
+            config = json.loads(config_path.read_text(encoding="utf-8"))
+            repo = config.get("github_repository", "").strip()
+            owner, separator, name = repo.partition("/")
+            if not separator or not owner or not name or "/" in name or not all(part.replace("-", "").replace("_", "").replace(".", "").isalnum() for part in (owner, name)):
+                raise ValueError("invalid GitHub repository setting")
+            request = urllib.request.Request(
+                f"https://raw.githubusercontent.com/{owner}/{name}/main/CHANGELOG.md",
+                headers={"User-Agent": "Tauron-Changelog", "Accept": "text/plain"},
+            )
+            with urllib.request.urlopen(request, timeout=4) as response:
+                content = response.read(200_001)
+            if len(content) > 200_000:
+                raise ValueError("remote changelog is unexpectedly large")
+            live_text = content.decode("utf-8").strip()
+            if not live_text:
+                raise ValueError("remote changelog is empty")
+            self.out("Tauron Changelog — live from GitHub\n")
+            self.out(live_text)
+        except (OSError, ValueError, UnicodeError, urllib.error.URLError, TimeoutError, json.JSONDecodeError) as remote_error:
+            try:
+                local_text = path.read_text(encoding="utf-8").rstrip()
+                self.out("Tauron Changelog — bundled copy (GitHub is unavailable)\n")
+                self.out(local_text)
+            except OSError as local_error:
+                self.out(f"changelog: could not load live or bundled notes ({remote_error}; {local_error})")
 
     def mod(self, args: list[str]) -> None:
         if not args or args[0] == "help":
