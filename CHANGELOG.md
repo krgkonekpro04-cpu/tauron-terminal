@@ -1,5 +1,10 @@
 # Tauron Changelog
 
+## 1.0.1 — Assistant layout fixes
+
+- Keep the Code/Study and provider dropdown menus above the chat pane so their options are not clipped.
+- Hide the prompt placeholder while the editor is focused to keep it clear of the insertion cursor.
+
 ## 1.0.0 — Tauron Super Update
 
 - Add Tauron-styled image, audio, and video previews in the Mac folder browser and AI attachment composer, including MP3 and MP4 playback.

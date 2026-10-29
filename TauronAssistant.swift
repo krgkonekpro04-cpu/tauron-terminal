@@ -23,9 +23,10 @@ private final class TauronPromptTextView: NSTextView {
 
 private struct TauronPromptEditor: NSViewRepresentable {
     @Binding var text: String
+    @Binding var isFocused: Bool
     let onSend: () -> Void
 
-    func makeCoordinator() -> Coordinator { Coordinator(text: $text) }
+    func makeCoordinator() -> Coordinator { Coordinator(text: $text, isFocused: $isFocused) }
 
     func makeNSView(context: Context) -> NSScrollView {
         let scrollView = NSScrollView()
@@ -61,13 +62,20 @@ private struct TauronPromptEditor: NSViewRepresentable {
 
     final class Coordinator: NSObject, NSTextViewDelegate {
         @Binding private var text: String
+        @Binding private var isFocused: Bool
 
-        init(text: Binding<String>) { _text = text }
+        init(text: Binding<String>, isFocused: Binding<Bool>) {
+            _text = text
+            _isFocused = isFocused
+        }
 
         func textDidChange(_ notification: Notification) {
             guard let textView = notification.object as? NSTextView else { return }
             text = textView.string
         }
+
+        func textDidBeginEditing(_ notification: Notification) { isFocused = true }
+        func textDidEndEditing(_ notification: Notification) { isFocused = false }
     }
 }
 
@@ -479,7 +487,7 @@ private struct TauronDropdown<Option: Hashable>: View {
             }
         }
         .frame(width: width)
-        .zIndex(isExpanded ? 20 : 0)
+        .zIndex(isExpanded ? 100 : 0)
     }
 }
 
@@ -554,10 +562,12 @@ struct TauronAssistantView: View {
     @State private var attachedMediaURL: URL?
     @State private var attachmentError: String?
     @State private var keyMessage: String?
+    @State private var isPromptFocused = false
 
     var body: some View {
         ZStack {
         VStack(spacing: 0) {
+            VStack(spacing: 0) {
             HStack {
                 Image(systemName: "sparkles").foregroundStyle(.purple)
                 Text("TAURON AI").font(.system(size: 12, weight: .bold, design: .monospaced))
@@ -578,6 +588,8 @@ struct TauronAssistantView: View {
             .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(.white.opacity(0.10), lineWidth: 1))
             .padding(10)
             Divider()
+            }
+            .zIndex(20)
 
             ScrollViewReader { proxy in
                 ScrollView {
@@ -622,6 +634,7 @@ struct TauronAssistantView: View {
                     .animation(.spring(response: 0.38, dampingFraction: 0.84), value: assistant.messages.count)
                 }
                 .background(Color.clear)
+                .zIndex(0)
                 .onChange(of: assistant.latestMessageText) { _ in
                     if let last = assistant.messages.last { proxy.scrollTo(last.id, anchor: .bottom) }
                 }
@@ -675,9 +688,9 @@ struct TauronAssistantView: View {
                     .disabled(assistant.isWorking)
                     .buttonStyle(TauronActionStyle())
                 ZStack(alignment: .topLeading) {
-                    TauronPromptEditor(text: $assistant.draft, onSend: send)
+                    TauronPromptEditor(text: $assistant.draft, isFocused: $isPromptFocused, onSend: send)
                         .frame(height: 62)
-                    if assistant.draft.isEmpty {
+                    if assistant.draft.isEmpty && !isPromptFocused {
                         Text(assistant.mode == .study ? "Ask about a school subject or attach an image…" : "Ask Tauron AI about code or a terminal task…")
                             .font(.system(size: 12)).foregroundStyle(.secondary)
                             .padding(.leading, 5).padding(.top, 8)
