@@ -419,23 +419,34 @@ struct TauronAssistantView: View {
                 Picker("AI mode", selection: $assistant.mode) {
                     ForEach(TauronAIMode.allCases) { mode in Text(mode.label).tag(mode) }
                 }.pickerStyle(.menu).frame(width: 82)
+                    .padding(.horizontal, 5).padding(.vertical, 3)
+                    .background(.thinMaterial, in: Capsule())
+                    .animation(.spring(response: 0.28, dampingFraction: 0.75), value: assistant.mode)
                 Picker("AI provider", selection: $assistant.provider) {
                     ForEach(TauronAIProvider.allCases) { provider in Text(provider.label).tag(provider) }
                 }.pickerStyle(.menu).frame(width: 155)
+                    .padding(.horizontal, 5).padding(.vertical, 3)
+                    .background(.thinMaterial, in: Capsule())
                 Button { showMemorySheet = true } label: {
                     Label("Memory (\(assistant.memories.count))", systemImage: "brain")
                 }
+                .buttonStyle(.bordered)
                 Button { keyMessage = nil; showKeySetup = true } label: {
                     Label(assistant.provider == .gemini ? (assistant.hasAPIKey ? "Gemini Settings" : "Connect Gemini…") : "Local Model Settings", systemImage: "gearshape")
                 }
-            }.padding(14)
+                .buttonStyle(.bordered)
+            }
+            .padding(.horizontal, 14).padding(.vertical, 11)
+            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(.white.opacity(0.10), lineWidth: 1))
+            .padding(10)
             Divider()
 
             ScrollViewReader { proxy in
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 16) {
                         ForEach(assistant.messages) { message in
-                            VStack(alignment: .leading, spacing: 5) {
+                            VStack(alignment: .leading, spacing: 7) {
                                 Text(message.role.uppercased())
                                     .font(.system(size: 10, weight: .bold, design: .monospaced))
                                     .foregroundStyle(message.role == "Tauron AI" ? .purple : .secondary)
@@ -443,7 +454,17 @@ struct TauronAssistantView: View {
                                     .font(.system(size: 13))
                                     .textSelection(.enabled)
                                     .frame(maxWidth: .infinity, alignment: .leading)
-                            }.id(message.id)
+                            }
+                            .padding(13)
+                            .background {
+                                RoundedRectangle(cornerRadius: 16, style: .continuous).fill(.ultraThinMaterial)
+                                if message.role == "You" {
+                                    RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.accentColor.opacity(0.12))
+                                }
+                            }
+                            .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(.white.opacity(message.role == "You" ? 0.15 : 0.09), lineWidth: 1))
+                            .id(message.id)
+                            .transition(.asymmetric(insertion: .move(edge: .bottom).combined(with: .opacity), removal: .opacity))
                         }
                         if assistant.isWorking && !assistant.isTyping {
                             HStack(spacing: 3) {
@@ -455,9 +476,15 @@ struct TauronAssistantView: View {
                                 }
                             }
                                 .font(.system(size: 12)).foregroundStyle(.secondary)
+                                .padding(.horizontal, 12).padding(.vertical, 8)
+                                .background(.thinMaterial, in: Capsule())
+                                .transition(.move(edge: .bottom).combined(with: .opacity))
                         }
-                    }.padding(18)
+                    }
+                    .padding(18)
+                    .animation(.spring(response: 0.38, dampingFraction: 0.84), value: assistant.messages.count)
                 }
+                .background(Color.clear)
                 .onChange(of: assistant.latestMessageText) { _ in
                     if let last = assistant.messages.last { proxy.scrollTo(last.id, anchor: .bottom) }
                 }
@@ -467,6 +494,7 @@ struct TauronAssistantView: View {
                 Text(attachmentError).font(.system(size: 11)).foregroundStyle(.red)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 12).padding(.top, 6)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
             }
             if attachedName != nil || attachedImage != nil {
                 HStack {
@@ -485,16 +513,22 @@ struct TauronAssistantView: View {
                     } label: { Image(systemName: "xmark.circle.fill") }
                         .buttonStyle(.plain).help("Remove attachments")
                         .disabled(assistant.isWorking)
-                }.font(.system(size: 11)).padding(.horizontal, 12).padding(.vertical, 6)
+                }
+                .font(.system(size: 11)).padding(.horizontal, 12).padding(.vertical, 7)
+                .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 11, style: .continuous))
+                .padding(.horizontal, 12).padding(.bottom, 4)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
             }
             Divider()
             HStack(alignment: .bottom, spacing: 8) {
                 Button { attachFile() } label: { Image(systemName: "paperclip") }
                     .help("Attach a text or code file for Tauron AI to review")
                     .disabled(assistant.isWorking)
+                    .buttonStyle(.bordered)
                 Button { attachImage() } label: { Image(systemName: "photo") }
                     .help("Attach an image for Tauron AI to understand")
                     .disabled(assistant.isWorking)
+                    .buttonStyle(.bordered)
                 ZStack(alignment: .topLeading) {
                     TauronPromptEditor(text: $assistant.draft, onSend: send)
                         .frame(height: 62)
@@ -506,11 +540,20 @@ struct TauronAssistantView: View {
                     }
                 }
                 Button { send() } label: { Image(systemName: "arrow.up.circle.fill").font(.system(size: 22)) }
+                    .buttonStyle(.plain)
                     .disabled((assistant.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && attachedImage == nil) || assistant.isWorking)
-            }.padding(12)
+            }
+            .padding(10)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 17, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 17, style: .continuous).stroke(.white.opacity(0.13), lineWidth: 1))
+            .padding(10)
         }
         .sheet(isPresented: $showKeySetup) { providerSetupSheet }
         .sheet(isPresented: $showMemorySheet) { memorySheet }
+        .animation(.spring(response: 0.34, dampingFraction: 0.82), value: attachedImage?.id)
+        .animation(.spring(response: 0.34, dampingFraction: 0.82), value: attachedName)
+        .animation(.spring(response: 0.34, dampingFraction: 0.82), value: attachmentError)
+        .animation(.spring(response: 0.34, dampingFraction: 0.82), value: assistant.isWorking)
     }
 
     private var providerSetupSheet: some View {
@@ -551,7 +594,9 @@ struct TauronAssistantView: View {
                     Button("Done") { showKeySetup = false }.keyboardShortcut(.defaultAction)
                 }
             }
-        }.padding(22).frame(width: 440)
+        }
+        .padding(22).frame(width: 440)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
     }
 
     private var memorySheet: some View {
@@ -581,7 +626,9 @@ struct TauronAssistantView: View {
                 Spacer()
                 Button("Done") { showMemorySheet = false }.keyboardShortcut(.defaultAction)
             }
-        }.padding(22).frame(width: 560, height: 420)
+        }
+        .padding(22).frame(width: 560, height: 420)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
     }
 
     private func attachFile() {

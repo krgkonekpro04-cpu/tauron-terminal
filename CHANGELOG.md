@@ -1,5 +1,10 @@
 # Tauron Changelog
 
+## 0.8.0 — Glass desktop refresh
+
+- Add translucent material panels, softer gradients, and rounded terminal, file, and chat surfaces.
+- Animate switches between Terminal and Tauron AI, new messages, file list updates, and attachment changes.
+
 ## 0.7.0 — Study Mode and image attachments
 
 - Add Study mode for step-by-step school tutoring, practice questions, quizzes, and study help from images.

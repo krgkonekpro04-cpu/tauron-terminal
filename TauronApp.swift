@@ -256,38 +256,76 @@ struct TauronWindow: View {
     }
 
     private var mainInterface: some View {
-        VStack(spacing: 0) {
-            HStack {
-                Text("TAURON").font(.system(size: 18, weight: .bold, design: .monospaced))
-                Text("Desktop Terminal").foregroundStyle(.secondary)
-                Spacer()
-                Button { showAssistant = false } label: { Label("Terminal", systemImage: "terminal") }
-                    .buttonStyle(.borderedProminent)
-                    .tint(showAssistant ? .secondary : .accentColor)
-                Button { showAssistant = true } label: { Label("Tauron AI", systemImage: "sparkles") }
-                    .buttonStyle(.borderedProminent)
-                    .tint(showAssistant ? .accentColor : .secondary)
-            }
-            .padding(.horizontal, 18).padding(.vertical, 14)
-            Divider()
-            HStack(spacing: 0) {
-                fileSidebar
-                    .frame(width: 270)
-                Divider()
-                if showAssistant {
-                    TauronAssistantView(assistant: assistant, directory: session.currentDirectory)
-                } else {
-                    terminalPanel
+        ZStack {
+            LinearGradient(
+                colors: [Color(nsColor: .windowBackgroundColor), Color.purple.opacity(0.13), Color.cyan.opacity(0.09)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            ).ignoresSafeArea()
+            Rectangle().fill(.ultraThinMaterial).opacity(0.68).ignoresSafeArea()
+
+            VStack(spacing: 12) {
+                HStack(spacing: 10) {
+                    Image(systemName: "terminal.fill")
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundStyle(.purple)
+                        .frame(width: 34, height: 34)
+                        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 11, style: .continuous))
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("TAURON").font(.system(size: 16, weight: .bold, design: .monospaced))
+                        Text("Desktop Terminal").font(.system(size: 11)).foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Button {
+                        withAnimation(.spring(response: 0.38, dampingFraction: 0.82)) { showAssistant = false }
+                    } label: { Label("Terminal", systemImage: "terminal") }
+                        .buttonStyle(.borderedProminent)
+                        .tint(showAssistant ? .secondary : .accentColor)
+                    Button {
+                        withAnimation(.spring(response: 0.38, dampingFraction: 0.82)) { showAssistant = true }
+                    } label: { Label("Tauron AI", systemImage: "sparkles") }
+                        .buttonStyle(.borderedProminent)
+                        .tint(showAssistant ? .accentColor : .secondary)
                 }
+                .padding(.horizontal, 15).padding(.vertical, 11)
+                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(.white.opacity(0.12), lineWidth: 1))
+
+                HStack(spacing: 12) {
+                    fileSidebar
+                        .frame(width: 250)
+                        .frame(maxHeight: .infinity)
+                        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+                        .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(.white.opacity(0.10), lineWidth: 1))
+                        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                    Group {
+                        if showAssistant {
+                            TauronAssistantView(assistant: assistant, directory: session.currentDirectory)
+                                .transition(.asymmetric(insertion: .move(edge: .trailing).combined(with: .opacity), removal: .opacity))
+                        } else {
+                            terminalPanel
+                                .transition(.asymmetric(insertion: .move(edge: .leading).combined(with: .opacity), removal: .opacity))
+                        }
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(.white.opacity(0.10), lineWidth: 1))
+                    .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                }
+                .animation(.spring(response: 0.42, dampingFraction: 0.86), value: showAssistant)
+
+                HStack(spacing: 7) {
+                    Image(systemName: "folder").foregroundStyle(.purple)
+                    Text("Commands work in the selected Mac folder.")
+                    Spacer()
+                    Text("Type help for commands")
+                }
+                .font(.system(size: 11)).foregroundStyle(.secondary)
+                .padding(.horizontal, 4).padding(.vertical, 2)
             }
-            Divider()
-            HStack {
-                Text("Commands read and change files in the selected Mac folder.")
-                    .font(.system(size: 11)).foregroundStyle(.secondary)
-                Spacer()
-                Text("Type help for commands").font(.system(size: 11)).foregroundStyle(.secondary)
-            }.padding(.horizontal, 16).padding(.vertical, 8)
+            .padding(14)
         }
+        .frame(minWidth: 900, minHeight: 580)
     }
 
     private var fileSidebar: some View {
@@ -301,7 +339,11 @@ struct TauronWindow: View {
                     .lineLimit(1).contentShape(Rectangle())
                     .onTapGesture(count: 2) { session.open(url) }
             }
+            .listStyle(.plain)
+            .background(Color.clear)
+            .animation(.easeInOut(duration: 0.18), value: session.files)
             Button(action: session.chooseFolder) { Label("Choose Folder…", systemImage: "folder.badge.plus") }
+                .buttonStyle(.bordered)
                 .frame(maxWidth: .infinity)
         }
         .padding(12)
@@ -318,6 +360,7 @@ struct TauronWindow: View {
                         .padding(14)
                         .id("terminal-bottom")
                 }
+                .background(Color.clear)
                 .onChange(of: session.output) { _ in proxy.scrollTo("terminal-bottom", anchor: .bottom) }
             }
             Divider()
@@ -327,8 +370,12 @@ struct TauronWindow: View {
                     .textFieldStyle(.plain).font(.system(size: 12, design: .monospaced))
                     .onSubmit { session.submit() }
                 Button("Run") { session.submit() }.keyboardShortcut(.return, modifiers: [])
+                    .buttonStyle(.borderedProminent)
             }
-            .padding(.horizontal, 12).padding(.vertical, 10)
+            .padding(.horizontal, 12).padding(.vertical, 9)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(.white.opacity(0.10), lineWidth: 1))
+            .padding(12)
         }
     }
 }
@@ -390,6 +437,11 @@ private struct TauronTermsAcceptanceView: View {
             }.padding(16)
         }
         .frame(minWidth: 640, minHeight: 500)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).stroke(.white.opacity(0.12), lineWidth: 1))
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .padding(12)
+        .animation(.spring(response: 0.34, dampingFraction: 0.82), value: showMore)
     }
 }
 

@@ -8,6 +8,8 @@ Install the downloaded release with `install.command` once. Then open **Tauron.a
 
 Tauron Desktop uses a native macOS interface and Python 3 to run Tauron's command engine. Tkinter is not required.
 
+The desktop interface uses translucent glass panels, rounded controls, and animated transitions between the terminal and AI.
+
 On first launch, Tauron displays its Terms of Service inside the app. Read them there, use **Learn More** for a plain-language summary, then choose **Accept** to continue or **Reject** to close Tauron. Tauron remembers acceptance for that terms version.
 
 ## Tauron AI
