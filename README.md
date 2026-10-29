@@ -14,9 +14,11 @@ On first launch, Tauron displays its Terms of Service inside the app. Read them 
 
 ## Tauron AI
 
-Select **Tauron AI** in Tauron Desktop and choose **Code** or **Study** mode. Study mode tutors school subjects with step-by-step explanations, practice questions, quizzes, and image help. Coding mode helps with Tauron commands, `.tau`/`.tauron` source files, and programming. Attach a PNG, JPEG, GIF, or WebP image (up to 10 MB) to ask about a diagram, worksheet, or other visual. An Ollama model must support vision to understand images.
+Select **Tauron AI** in Tauron Desktop and choose **Code** or **Study** mode. Study mode tutors school subjects with step-by-step explanations, practice questions, quizzes, and image help. Coding mode helps with Tauron commands, `.tau`/`.tauron` source files, and programming. Attach a PNG, JPEG, GIF, or WebP image (up to 10 MB) to ask about a diagram, worksheet, or other visual. An Ollama model must support vision to understand images. The AI's command suggestions are grounded in the command catalog generated from the running Tauron command engine; it is instructed not to make up Tauron commands.
 
-**Ollama (on this Mac)** is the default: Ollama runs an open model that you download once, then Tauron can use it locally, including offline. Ollama is a model runner, not the model itself. This makes Tauron independent from Gemini, but it does not mean Tauron has its own trained model. Tauron supplies the local model with up to eight readable source files from the selected folder in Coding mode, plus any file or image you attach and the notes you saved. This context stays on the Mac with Ollama. **Gemini (optional cloud)** remains available if you choose it and connect your own Google AI Studio API key; prompts, images, text attachments, and saved notes then go to Google's API. Tauron stores that key in macOS Keychain. The assistant suggests commands and edits but does not execute commands or change files.
+The paperclip attachment preview supports images and common audio/video files. MP3, M4A, WAV, AIFF, MP4, MOV, and M4V files preview and play locally in Tauron. The current AI providers receive attached images and text, but not audio/video media contents.
+
+**Ollama (on this Mac)** is the default: Ollama runs an open model that you download once, then Tauron can use it locally, including offline. Ollama is a model runner, not the model itself. This makes Tauron independent from Gemini, but it does not mean Tauron has its own trained model. Tauron supplies the local model with up to eight readable source files from the selected folder in Coding mode, plus any text file or image you attach and the notes you saved. This context stays on the Mac with Ollama. **Gemini (optional cloud)** remains available if you choose it and connect your own Google AI Studio API key; prompts, images, text attachments, and saved notes then go to Google's API. Tauron stores that key in macOS Keychain. The assistant suggests commands and edits but does not execute commands or change files.
 
 In the Tauron AI prompt, press Return to send and Shift+Return to insert a new line.
 
@@ -24,9 +26,9 @@ Tauron AI can remember preferences and project notes you add under **Memory**. T
 
 ## Commands
 
-`help`, `clear`, `pwd`, `ls`, `cd`, `mkdir`, `touch`, `cat`, `echo`, `cp`, `mv`, `rm`, `head`, `tail`, `wc`, `find`, `date`, `whoami`, `history`, `exit`.
+Tauron includes the original file and terminal commands plus math, text, system, study, and conversion tools. It registers 1,014 specific unit-conversion shortcuts, such as `km_to_m`, `convert_g_to_lb`, `c_to_f`, and `gb_to_mib`, alongside the general `convert` command.
 
-Tauron includes 20 core commands, 100 convenience aliases, and the `mod` and `changelog` commands (for example, `dir` works like `ls`, and `quit` works like `exit`). Type `help` to print the full list and scroll through it in Tauron. Type `help <command>` for usage.
+Type `help` to print the full scrollable command list, or `help math`, `help text`, `help system`, `help study`, `help files`, `help terminal`, or `help conversions` to filter it. Type `help <command>` for usage. Tauron includes over 1,000 generated conversion shortcuts and 100 convenience aliases (for example, `dir` works like `ls`, and `quit` works like `exit`).
 
 Examples:
 
@@ -68,6 +70,6 @@ For a fresh install, download `tauron-macos.zip` from the [Tauron releases page]
 
 If you already installed the earlier command-line-only Tauron, run the new `install.command` once to switch the same `~/bin/tauron` launcher over to Tauron Desktop. Later updates are automatic.
 
-The left pane browses your Mac folders. Choose a folder or double-click one in the list; Tauron's `ls`, `cat`, `touch`, `cp`, `mv`, and other file commands operate directly on files in that folder. There is no separate copy or cloud sync: changes are made to the selected Mac files immediately.
+The left pane browses your Mac folders. Choose a folder or double-click one in the list; Tauron's `ls`, `cat`, `touch`, `cp`, `mv`, and other file commands operate directly on files in that folder. Double-click images, MP3, MP4, M4A, WAV, AIFF, MOV, and M4V files to open Tauron's in-app preview and player. There is no separate copy or cloud sync: changes are made to the selected Mac files immediately.
 
 The startup updater checks the public GitHub Releases location configured in `update-config.json`. Each release must include an asset named `tauron-macos.zip` containing the app files and `CHANGELOG.md`. The updater fails quietly when offline or when no newer release exists. Type `changelog` inside Tauron to read the included release notes.

@@ -1,6 +1,49 @@
 import AppKit
+import AVKit
 import Combine
 import SwiftUI
+
+struct TauronActionStyle: ButtonStyle {
+    var prominent = false
+    var destructive = false
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 13, weight: .semibold))
+            .foregroundStyle(prominent || destructive ? Color.white : Color.primary.opacity(0.9))
+            .padding(.horizontal, 14).padding(.vertical, 9)
+            .background {
+                RoundedRectangle(cornerRadius: 11, style: .continuous)
+                    .fill(destructive
+                        ? Color.red.opacity(configuration.isPressed ? 0.8 : 0.65)
+                        : prominent
+                            ? Color(red: 0.43, green: 0.28, blue: 0.88).opacity(configuration.isPressed ? 0.84 : 0.96)
+                            : Color.white.opacity(configuration.isPressed ? 0.14 : 0.07))
+            }
+            .overlay(RoundedRectangle(cornerRadius: 11, style: .continuous).stroke(.white.opacity(prominent ? 0.18 : 0.11), lineWidth: 1))
+            .scaleEffect(configuration.isPressed ? 0.97 : 1)
+            .animation(.spring(response: 0.22, dampingFraction: 0.68), value: configuration.isPressed)
+    }
+}
+
+struct TauronChoiceStyle: ButtonStyle {
+    var isSelected: Bool
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 12, weight: .semibold))
+            .foregroundStyle(isSelected ? Color.white : Color.primary.opacity(0.82))
+            .padding(.horizontal, 12).padding(.vertical, 8)
+            .frame(maxWidth: .infinity)
+            .background {
+                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    .fill(isSelected ? Color.purple.opacity(configuration.isPressed ? 0.75 : 0.58) : Color.white.opacity(configuration.isPressed ? 0.10 : 0.035))
+            }
+            .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous).stroke(.white.opacity(isSelected ? 0.18 : 0.07), lineWidth: 1))
+            .scaleEffect(configuration.isPressed ? 0.98 : 1)
+            .animation(.spring(response: 0.22, dampingFraction: 0.68), value: configuration.isPressed)
+    }
+}
 
 @MainActor
 final class TauronSession: ObservableObject {
@@ -9,6 +52,7 @@ final class TauronSession: ObservableObject {
     @Published var currentDirectory = FileManager.default.homeDirectoryForCurrentUser
     @Published var files: [URL] = []
     @Published var isReady = false
+    @Published var previewURL: URL?
 
     private var process: Process?
     private var inputPipe: Pipe?
@@ -83,6 +127,8 @@ final class TauronSession: ObservableObject {
         FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory)
         if isDirectory.boolValue {
             changeDirectory(to: url)
+        } else if TauronMediaPreview.supports(url) {
+            previewURL = url
         } else {
             sendCommand("cat \"\(escaped(url.lastPathComponent))\"")
         }
@@ -279,12 +325,12 @@ struct TauronWindow: View {
                     Button {
                         withAnimation(.spring(response: 0.38, dampingFraction: 0.82)) { showAssistant = false }
                     } label: { Label("Terminal", systemImage: "terminal") }
-                        .buttonStyle(.borderedProminent)
+                        .buttonStyle(TauronActionStyle(prominent: !showAssistant))
                         .tint(showAssistant ? .secondary : .accentColor)
                     Button {
                         withAnimation(.spring(response: 0.38, dampingFraction: 0.82)) { showAssistant = true }
                     } label: { Label("Tauron AI", systemImage: "sparkles") }
-                        .buttonStyle(.borderedProminent)
+                        .buttonStyle(TauronActionStyle(prominent: showAssistant))
                         .tint(showAssistant ? .accentColor : .secondary)
                 }
                 .padding(.horizontal, 15).padding(.vertical, 11)
@@ -324,8 +370,14 @@ struct TauronWindow: View {
                 .padding(.horizontal, 4).padding(.vertical, 2)
             }
             .padding(14)
+            if let previewURL = session.previewURL {
+                TauronFilePreviewOverlay(url: previewURL) { session.previewURL = nil }
+                    .zIndex(30)
+                    .transition(.opacity.combined(with: .scale(scale: 0.97)))
+            }
         }
         .frame(minWidth: 900, minHeight: 580)
+        .animation(.spring(response: 0.32, dampingFraction: 0.84), value: session.previewURL)
     }
 
     private var fileSidebar: some View {
@@ -335,7 +387,7 @@ struct TauronWindow: View {
                 .foregroundStyle(.secondary).lineLimit(2).truncationMode(.middle)
             List(session.files, id: \.path) { url in
                 let isDirectory = (try? url.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) ?? false
-                Label(url.lastPathComponent, systemImage: isDirectory ? "folder" : "doc.text")
+                Label(url.lastPathComponent, systemImage: isDirectory ? "folder" : TauronMediaPreview.symbol(for: url))
                     .lineLimit(1).contentShape(Rectangle())
                     .onTapGesture(count: 2) { session.open(url) }
             }
@@ -343,7 +395,7 @@ struct TauronWindow: View {
             .background(Color.clear)
             .animation(.easeInOut(duration: 0.18), value: session.files)
             Button(action: session.chooseFolder) { Label("Choose Folder…", systemImage: "folder.badge.plus") }
-                .buttonStyle(.bordered)
+                .buttonStyle(TauronActionStyle())
                 .frame(maxWidth: .infinity)
         }
         .padding(12)
@@ -370,13 +422,132 @@ struct TauronWindow: View {
                     .textFieldStyle(.plain).font(.system(size: 12, design: .monospaced))
                     .onSubmit { session.submit() }
                 Button("Run") { session.submit() }.keyboardShortcut(.return, modifiers: [])
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(TauronActionStyle(prominent: true))
             }
             .padding(.horizontal, 12).padding(.vertical, 9)
             .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
             .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(.white.opacity(0.10), lineWidth: 1))
             .padding(12)
         }
+    }
+}
+
+private struct TauronFilePreviewOverlay: View {
+    let url: URL
+    let onDismiss: () -> Void
+
+    var body: some View {
+        GeometryReader { geometry in
+            ZStack {
+                Color.black.opacity(0.62).ignoresSafeArea().onTapGesture(perform: onDismiss)
+                VStack(spacing: 12) {
+                    HStack(spacing: 10) {
+                        Image(systemName: TauronMediaPreview.symbol(for: url)).foregroundStyle(.purple)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("MEDIA PREVIEW").font(.system(size: 11, weight: .bold, design: .monospaced))
+                            Text(url.lastPathComponent).font(.system(size: 12)).foregroundStyle(.secondary).lineLimit(1)
+                        }
+                        Spacer()
+                        Button(action: onDismiss) { Image(systemName: "xmark") }
+                            .buttonStyle(TauronActionStyle())
+                    }
+                    TauronMediaPreview(url: url)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .background(Color.black.opacity(0.24), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    HStack {
+                        Text(url.pathExtension.uppercased() + "  ·  " + url.deletingLastPathComponent().path)
+                            .font(.system(size: 10, design: .monospaced)).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
+                        Spacer()
+                        Button("Open in Tauron") { NSWorkspace.shared.open(url) }.buttonStyle(TauronActionStyle(prominent: true))
+                    }
+                }
+                .padding(18)
+                .frame(width: max(420, min(geometry.size.width - 40, 850)), height: max(340, min(geometry.size.height - 40, 650)))
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).stroke(.white.opacity(0.16), lineWidth: 1))
+                .shadow(color: .black.opacity(0.45), radius: 32, y: 18)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+    }
+}
+
+struct TauronMediaPreview: View {
+    let url: URL
+    @State private var player: AVPlayer?
+    @State private var duration = 0.0
+    @State private var isPlaying = false
+
+    static func supports(_ url: URL) -> Bool {
+        ["mp3", "m4a", "wav", "aiff", "aif", "caf", "mp4", "mov", "m4v"].contains(url.pathExtension.lowercased()) ||
+        ["png", "jpg", "jpeg", "gif", "webp", "heic", "tif", "tiff"].contains(url.pathExtension.lowercased())
+    }
+
+    static func symbol(for url: URL) -> String {
+        let ext = url.pathExtension.lowercased()
+        if ["mp3", "m4a", "wav", "aiff", "aif", "caf"].contains(ext) { return "waveform" }
+        if ["mp4", "mov", "m4v"].contains(ext) { return "play.rectangle" }
+        if ["png", "jpg", "jpeg", "gif", "webp", "heic", "tif", "tiff"].contains(ext) { return "photo" }
+        return "doc.text"
+    }
+
+    private var isAudio: Bool { ["mp3", "m4a", "wav", "aiff", "aif", "caf"].contains(url.pathExtension.lowercased()) }
+    private var isImage: Bool { ["png", "jpg", "jpeg", "gif", "webp", "heic", "tif", "tiff"].contains(url.pathExtension.lowercased()) }
+
+    var body: some View {
+        Group {
+            if isImage {
+                if let image = NSImage(contentsOf: url) {
+                    Image(nsImage: image).resizable().scaledToFit().padding(12)
+                } else {
+                    Label("Tauron could not preview this image.", systemImage: "photo")
+                        .font(.system(size: 12)).foregroundStyle(.secondary)
+                }
+            } else if isAudio {
+                audioControls
+            } else {
+                VideoPlayer(player: player)
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            }
+        }
+        .onAppear(perform: preparePlayer)
+        .onChange(of: url) { _ in preparePlayer() }
+        .onDisappear { player?.pause(); isPlaying = false }
+    }
+
+    private var audioControls: some View {
+        VStack(spacing: 14) {
+            Image(systemName: "waveform").font(.system(size: 42, weight: .medium)).foregroundStyle(.purple)
+            Text(url.deletingPathExtension().lastPathComponent).font(.system(size: 13, weight: .semibold)).lineLimit(1)
+            HStack(spacing: 12) {
+                Button {
+                    guard let player else { return }
+                    if isPlaying { player.pause() } else { player.play() }
+                    isPlaying.toggle()
+                } label: { Image(systemName: isPlaying ? "pause.fill" : "play.fill").font(.system(size: 16, weight: .bold)).frame(width: 38, height: 38) }
+                    .buttonStyle(TauronActionStyle(prominent: true))
+                TimelineView(.periodic(from: .now, by: 0.25)) { _ in
+                    Slider(value: Binding(get: { player?.currentTime().seconds.isFinite == true ? player!.currentTime().seconds : 0 }, set: { player?.seek(to: CMTime(seconds: $0, preferredTimescale: 600)) }), in: 0...max(duration, 1))
+                }
+                Text(timeString(player?.currentTime().seconds ?? 0) + " / " + timeString(duration))
+                    .font(.system(size: 10, design: .monospaced)).foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, 18)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private func preparePlayer() {
+        guard !isImage else { return }
+        player?.pause()
+        player = AVPlayer(url: url)
+        let seconds = AVURLAsset(url: url).duration.seconds
+        duration = seconds.isFinite && seconds > 0 ? seconds : 0
+    }
+
+    private func timeString(_ seconds: Double) -> String {
+        guard seconds.isFinite && seconds >= 0 else { return "0:00" }
+        return String(format: "%d:%02d", Int(seconds) / 60, Int(seconds) % 60)
     }
 }
 
@@ -429,11 +600,15 @@ private struct TauronTermsAcceptanceView: View {
             HStack {
                 Button("Reject") { onReject() }
                     .keyboardShortcut(.cancelAction)
-                Button(showMore ? "Hide Details" : "Learn More") { showMore.toggle() }
+                    .buttonStyle(TauronActionStyle(destructive: true))
+                Button(showMore ? "Hide Details" : "Learn More") {
+                    withAnimation(.spring(response: 0.34, dampingFraction: 0.82)) { showMore.toggle() }
+                }
+                    .buttonStyle(TauronActionStyle())
                 Spacer()
                 Button("Accept") { onAccept() }
                     .keyboardShortcut(.defaultAction)
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(TauronActionStyle(prominent: true))
             }.padding(16)
         }
         .frame(minWidth: 640, minHeight: 500)

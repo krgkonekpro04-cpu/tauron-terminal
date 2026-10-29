@@ -3,15 +3,71 @@
 
 from __future__ import annotations
 
+import ast
+import base64
+import calendar as calendar_module
 import datetime
+import hashlib
+import json
+import math
 import os
+import platform
+import random
+import secrets
 import signal
 import shlex
 import shutil
+import socket
+import statistics
 import subprocess
 import sys
 import time
+import urllib.parse
+import uuid
 from pathlib import Path
+
+
+UNIT_GROUPS = {
+    "length": {"m": 1, "km": 1000, "cm": .01, "mm": .001, "um": .000001, "mi": 1609.344, "yd": .9144, "ft": .3048, "in": .0254, "nmi": 1852},
+    "mass": {"mg": .000001, "g": .001, "kg": 1, "t": 1000, "oz": .028349523125, "lb": .45359237, "st": 6.35029318},
+    "volume": {"ml": .001, "l": 1, "kl": 1000, "tsp": .00492892159, "tbsp": .0147867648, "cup": .236588237, "pt": .473176473, "qt": .946352946, "gal": 3.785411784},
+    "time": {"ms": .001, "s": 1, "min": 60, "h": 3600, "d": 86400, "w": 604800},
+    "data": {"bit": 1, "byte": 8, "kb": 8000, "mb": 8_000_000, "gb": 8_000_000_000, "kib": 8192, "mib": 8_388_608, "gib": 8_589_934_592},
+    "speed": {"mps": 1, "kmh": 1 / 3.6, "mph": .44704, "knot": .514444},
+    "area": {"m2": 1, "km2": 1_000_000, "cm2": .0001, "ft2": .09290304, "acre": 4046.8564224, "ha": 10_000},
+    "temperature": {"c": 0, "f": 0, "k": 0},
+}
+
+
+COMMAND_INFO = {
+    "help": ("Show the complete scrollable command catalog or one command's usage.", "help [command|category]"),
+    "calc": ("Safely evaluate basic arithmetic and selected math functions.", "calc <expression>"),
+    "convert": ("Convert a value between supported measurement units.", "convert <value> <from-unit> <to-unit>"),
+    "percent": ("Calculate a percentage of a number.", "percent <number> <percent>"),
+    "factorial": ("Calculate a non-negative integer factorial.", "factorial <integer>"),
+    "prime": ("Check if an integer is prime.", "prime <integer>"),
+    "fibonacci": ("Print the first N Fibonacci numbers.", "fibonacci <count>"),
+    "mean": ("Calculate the arithmetic mean of numbers.", "mean <number>..."),
+    "random": ("Pick a random integer in the optional inclusive range.", "random [minimum] [maximum]"),
+    "choose": ("Pick one item from the supplied options.", "choose <option> <option>..."),
+    "dice": ("Roll dice using optional count and side count.", "dice [count] [sides]"),
+    "uuid": ("Generate a random UUID.", "uuid"),
+    "password": ("Generate a random password.", "password [length]"),
+    "reverse": ("Reverse text.", "reverse <text>"), "upper": ("Convert text to uppercase.", "upper <text>"),
+    "lower": ("Convert text to lowercase.", "lower <text>"), "title": ("Convert text to title case.", "title <text>"),
+    "slug": ("Create a URL-friendly slug from text.", "slug <text>"), "sorttext": ("Sort text lines.", "sorttext <text>"),
+    "unique": ("Remove duplicate words or lines while preserving order.", "unique <text>"),
+    "replace": ("Replace text using old and new phrases.", "replace <text> | <old> | <new>"),
+    "base64": ("Encode text as Base64.", "base64 <text>"), "unbase64": ("Decode Base64 text.", "unbase64 <encoded>"),
+    "urlencode": ("Percent-encode text for a URL.", "urlencode <text>"), "urldecode": ("Decode URL-encoded text.", "urldecode <text>"),
+    "jsonfmt": ("Validate and pretty-print JSON.", "jsonfmt <json>"), "hash": ("Compute a SHA-256 digest.", "hash <text>"),
+    "sysinfo": ("Show operating system and Python details.", "sysinfo"), "disk": ("Show free and total space for the current volume.", "disk"),
+    "hostname": ("Show this computer's network host name.", "hostname"), "dns": ("Look up addresses for a host name.", "dns <hostname>"),
+    "calendarview": ("Show a text calendar for a month.", "calendarview [year] [month]"),
+    "weekday": ("Show the weekday for an ISO date or today.", "weekday [YYYY-MM-DD]"),
+    "timer": ("Run a local countdown timer.", "timer <seconds>"),
+    "quiz": ("Show a short built-in practice question.", "quiz"),
+}
 
 
 class Tauron:
@@ -30,8 +86,24 @@ class Tauron:
             "history": self.show_history, "exit": self.exit,
             "mod": self.mod,
             "changelog": self.changelog,
+            "calc": self.calc, "convert": self.convert,
+            "percent": self.percent, "factorial": self.factorial,
+            "prime": self.prime, "fibonacci": self.fibonacci,
+            "mean": self.mean, "random": self.random_number,
+            "choose": self.choose, "dice": self.dice, "uuid": self.uuid_command,
+            "password": self.password,
+            "reverse": self.reverse, "upper": self.upper, "lower": self.lower,
+            "title": self.title, "slug": self.slug, "sorttext": self.sort_text,
+            "unique": self.unique_text, "replace": self.replace_text,
+            "base64": self.base64_encode, "unbase64": self.base64_decode,
+            "urlencode": self.url_encode, "urldecode": self.url_decode,
+            "jsonfmt": self.json_format, "hash": self.hash_text,
+            "sysinfo": self.sysinfo, "disk": self.disk_info,
+            "hostname": self.hostname, "dns": self.dns_lookup,
+            "calendarview": self.calendar_view, "weekday": self.weekday,
+            "timer": self.timer, "quiz": self.quiz,
         }
-        # Tauron has 100 extra built-in names, grouped around the core commands.
+        # Tauron command names are synonyms for explicit built-ins; none invoke a shell.
         # These are convenient synonyms, so they behave consistently with the
         # original command and do not invoke the host shell.
         aliases = {
@@ -55,12 +127,266 @@ class Tauron:
             "clear": "cls wipe screen",
             "help": "manual commands commandlist",
             "exit": "quit bye logout stop close",
+            "calc": "calculate compute math arithmetic",
+            "convert": "conversion convertunits unitconvert",
+            "percent": "percentage percentof",
+            "factorial": "fact",
+            "prime": "isprime primality",
+            "fibonacci": "fib sequence",
+            "mean": "average avg median",
+            "random": "rand randint randomnumber",
+            "choose": "pick choice",
+            "dice": "roll roll_dice",
+            "uuid": "guid newuuid",
+            "password": "passgen generatepassword",
+            "reverse": "rev reverse_text",
+            "upper": "uppercase shoutcase",
+            "lower": "lowercase",
+            "title": "titlecase",
+            "slug": "slugify",
+            "sorttext": "sortlines",
+            "unique": "dedupe uniqueitems",
+            "replace": "replacetext",
+            "base64": "b64 encode64",
+            "unbase64": "decode64",
+            "urlencode": "encodeurl",
+            "urldecode": "decodeurl",
+            "jsonfmt": "jsonformat prettyjson",
+            "hash": "sha256 digest",
+            "sysinfo": "systeminfo system osinfo",
+            "disk": "diskspace storage",
+            "hostname": "host computername",
+            "dns": "lookuphost resolve",
+            "calendarview": "monthcal monthcalendar",
+            "weekday": "dayofweek",
+            "timer": "countdown studytimer",
+            "quiz": "practicequiz",
         }
         self.aliases: dict[str, str] = {}
         for target, names in aliases.items():
             for alias in names.split():
                 self.commands[alias] = self.commands[target]
                 self.aliases[alias] = target
+        self.command_groups: dict[str, str] = {}
+        self.conversion_aliases: dict[str, tuple[str, str]] = {}
+        self.register_conversion_commands()
+        self.assign_command_groups()
+
+    def register_conversion_commands(self) -> None:
+        """Register over a thousand real, named unit conversion shortcuts."""
+        for group, units in UNIT_GROUPS.items():
+            labels = list(units)
+            for source in labels:
+                for target in labels:
+                    if source == target:
+                        continue
+                    for name in (f"{source}_to_{target}", f"convert_{source}_to_{target}", f"{source}_in_{target}"):
+                        def run(args: list[str], a: str = source, b: str = target, shortcut: str = name) -> None:
+                            if len(args) != 1:
+                                self.out(f"Usage: {shortcut} <number>")
+                                return
+                            self.convert_value(args[0], a, b)
+                        self.commands[name] = run
+                        self.aliases[name] = "convert"
+                        self.conversion_aliases[name] = (source, target)
+                        self.command_groups[name] = "conversions"
+
+    def assign_command_groups(self) -> None:
+        groups = {
+            "files": "ls cd pwd mkdir touch cat cp mv rm head tail wc find",
+            "terminal": "help clear history exit date whoami changelog mod",
+            "math": "calc percent factorial prime fibonacci mean random choose dice",
+            "text": "reverse upper lower title slug sorttext unique replace base64 unbase64 urlencode urldecode jsonfmt hash",
+            "system": "sysinfo disk hostname dns calendarview weekday timer uuid password",
+            "study": "quiz",
+        }
+        for group, names in groups.items():
+            for name in names.split():
+                self.command_groups[name] = group
+        for alias, target in self.aliases.items():
+            self.command_groups.setdefault(alias, self.command_groups.get(target, "other"))
+
+    def command_catalog(self) -> list[dict[str, str]]:
+        catalog = []
+        for name in sorted(self.commands):
+            if name in self.aliases:
+                continue
+            description, usage = COMMAND_INFO.get(name, ("Tauron built-in command.", name))
+            catalog.append({"name": name, "description": description, "usage": usage, "category": self.command_groups.get(name, "other")})
+        catalog.append({"name": "<unit>_to_<unit>", "description": "Unit-specific conversion commands listed by help conversions.", "usage": "<source>_to_<target> <number>", "category": "conversions"})
+        return catalog
+
+    def _number(self, raw: str) -> float:
+        return float(raw.replace(",", ""))
+
+    def calc(self, args: list[str]) -> None:
+        if not args:
+            self.out("Usage: calc <expression> (example: calc 2 * (3 + 4))")
+            return
+        functions = {"abs": abs, "round": round, "min": min, "max": max, "sqrt": math.sqrt,
+                     "sin": math.sin, "cos": math.cos, "tan": math.tan, "log": math.log,
+                     "floor": math.floor, "ceil": math.ceil}
+        binary = {ast.Add: lambda a,b:a+b, ast.Sub: lambda a,b:a-b, ast.Mult: lambda a,b:a*b,
+                  ast.Div: lambda a,b:a/b, ast.FloorDiv: lambda a,b:a//b, ast.Mod: lambda a,b:a%b,
+                  ast.Pow: lambda a,b:a**b}
+        unary = {ast.UAdd: lambda x:x, ast.USub: lambda x:-x}
+        def evaluate(node):
+            if isinstance(node, ast.Expression): return evaluate(node.body)
+            if isinstance(node, ast.Constant) and isinstance(node.value, (int, float)): return node.value
+            if isinstance(node, ast.Name) and node.id in {"pi", "e"}: return getattr(math, node.id)
+            if isinstance(node, ast.BinOp) and type(node.op) in binary:
+                left, right = evaluate(node.left), evaluate(node.right)
+                if isinstance(node.op, ast.Pow) and abs(right) > 1000: raise ValueError("exponent is too large")
+                return binary[type(node.op)](left, right)
+            if isinstance(node, ast.UnaryOp) and type(node.op) in unary: return unary[type(node.op)](evaluate(node.operand))
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id in functions and not node.keywords:
+                return functions[node.func.id](*(evaluate(arg) for arg in node.args))
+            raise ValueError("only arithmetic, pi, e, and basic math functions are allowed")
+        try:
+            tree = ast.parse(" ".join(args), mode="eval")
+            result = evaluate(tree)
+            if isinstance(result, (int, float)) and (not math.isfinite(result) or abs(result) > 1e300): raise ValueError("result is outside the supported range")
+            self.out(result)
+        except (ValueError, TypeError, ZeroDivisionError, OverflowError, SyntaxError) as exc:
+            self.out(f"calc: {exc}")
+
+    def convert_value(self, raw: str, source: str, target: str) -> None:
+        source, target = source.lower(), target.lower()
+        try: value = self._number(raw)
+        except ValueError: self.out("convert: enter a numeric value"); return
+        if source in UNIT_GROUPS["temperature"] and target in UNIT_GROUPS["temperature"]:
+            to_c = value if source == "c" else (value - 32) * 5 / 9 if source == "f" else value - 273.15
+            result = to_c if target == "c" else to_c * 9 / 5 + 32 if target == "f" else to_c + 273.15
+        else:
+            group = next((units for key, units in UNIT_GROUPS.items() if key != "temperature" and source in units and target in units), None)
+            if group is None:
+                self.out(f"convert: unsupported unit pair {source} -> {target}"); return
+            result = value * group[source] / group[target]
+        self.out(f"{value:g} {source} = {result:.10g} {target}")
+
+    def convert(self, args: list[str]) -> None:
+        if len(args) != 3:
+            self.out("Usage: convert <value> <from-unit> <to-unit>. Use help conversions to browse named conversions.")
+            return
+        self.convert_value(*args)
+
+    def percent(self, args: list[str]) -> None:
+        try:
+            if len(args) != 2: raise ValueError("Usage: percent <number> <percent>")
+            self.out(self._number(args[0]) * self._number(args[1]) / 100)
+        except ValueError as exc: self.out(f"percent: {exc}")
+
+    def factorial(self, args: list[str]) -> None:
+        try:
+            n = int(args[0])
+            if len(args) != 1 or n < 0 or n > 5000: raise ValueError("Usage: factorial <integer 0-5000>")
+            self.out(math.factorial(n))
+        except (ValueError, IndexError) as exc: self.out(f"factorial: {exc}")
+
+    def prime(self, args: list[str]) -> None:
+        try:
+            n = int(args[0])
+            if len(args) != 1: raise ValueError("Usage: prime <integer>")
+            self.out(f"{n} is " + ("prime" if n > 1 and all(n % d for d in range(2, math.isqrt(n) + 1)) else "not prime"))
+        except (ValueError, IndexError) as exc: self.out(f"prime: {exc}")
+
+    def fibonacci(self, args: list[str]) -> None:
+        try:
+            n = int(args[0])
+            if len(args) != 1 or not 0 <= n <= 500: raise ValueError("Usage: fibonacci <count 0-500>")
+            values, a, b = [], 0, 1
+            for _ in range(n): values.append(a); a, b = b, a + b
+            self.out(" ".join(map(str, values)))
+        except (ValueError, IndexError) as exc: self.out(f"fibonacci: {exc}")
+
+    def mean(self, args: list[str]) -> None:
+        try: self.out(statistics.mean(map(self._number, args)) if args else "Usage: mean <number>...")
+        except (ValueError, statistics.StatisticsError) as exc: self.out(f"mean: {exc}")
+
+    def random_number(self, args: list[str]) -> None:
+        try:
+            low, high = (0, 100) if not args else (int(args[0]), int(args[1]) if len(args) > 1 else int(args[0]))
+            if len(args) > 2: raise ValueError()
+            self.out(random.randint(low, high))
+        except ValueError: self.out("Usage: random [minimum] [maximum]")
+
+    def choose(self, args: list[str]) -> None:
+        self.out(random.choice(args) if args else "Usage: choose <option> <option>...")
+
+    def dice(self, args: list[str]) -> None:
+        try:
+            count = int(args[0]) if args else 1; sides = int(args[1]) if len(args) > 1 else 6
+            if len(args) > 2 or count < 1 or count > 100 or sides < 2 or sides > 1_000_000: raise ValueError()
+            rolls = [random.randint(1, sides) for _ in range(count)]
+            self.out(f"Rolls: {', '.join(map(str, rolls))}  Total: {sum(rolls)}")
+        except ValueError: self.out("Usage: dice [count 1-100] [sides 2-1000000]")
+
+    def uuid_command(self, args: list[str]) -> None: self.out(uuid.uuid4())
+    def password(self, args: list[str]) -> None:
+        try:
+            length = int(args[0]) if args else 20
+            if len(args) > 1 or not 8 <= length <= 128: raise ValueError()
+            self.out("".join(secrets.choice("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%&*-_+") for _ in range(length)))
+        except ValueError: self.out("Usage: password [length 8-128]")
+
+    def _text(self, args: list[str]) -> str: return " ".join(args)
+    def reverse(self, args: list[str]) -> None: self.out(self._text(args)[::-1])
+    def upper(self, args: list[str]) -> None: self.out(self._text(args).upper())
+    def lower(self, args: list[str]) -> None: self.out(self._text(args).lower())
+    def title(self, args: list[str]) -> None: self.out(self._text(args).title())
+    def slug(self, args: list[str]) -> None:
+        import re
+        self.out(re.sub(r"[^a-z0-9]+", "-", self._text(args).lower()).strip("-"))
+    def sort_text(self, args: list[str]) -> None: self.out("\n".join(sorted(self._text(args).splitlines(), key=str.casefold)))
+    def unique_text(self, args: list[str]) -> None:
+        seen = set(); values = []
+        for item in self._text(args).splitlines() if "\n" in self._text(args) else args:
+            key = item.casefold()
+            if key not in seen: seen.add(key); values.append(item)
+        self.out("\n".join(values))
+    def replace_text(self, args: list[str]) -> None:
+        parts = self._text(args).split("|", 2)
+        if len(parts) != 3: self.out("Usage: replace <text> | <old> | <new>"); return
+        self.out(parts[0].replace(parts[1], parts[2]))
+    def base64_encode(self, args: list[str]) -> None: self.out(base64.b64encode(self._text(args).encode()).decode())
+    def base64_decode(self, args: list[str]) -> None:
+        try: self.out(base64.b64decode(self._text(args), validate=True).decode("utf-8"))
+        except (ValueError, UnicodeError) as exc: self.out(f"unbase64: {exc}")
+    def url_encode(self, args: list[str]) -> None: self.out(urllib.parse.quote(self._text(args), safe=""))
+    def url_decode(self, args: list[str]) -> None: self.out(urllib.parse.unquote(self._text(args)))
+    def json_format(self, args: list[str]) -> None:
+        try: self.out(json.dumps(json.loads(self._text(args)), indent=2, ensure_ascii=False))
+        except json.JSONDecodeError as exc: self.out(f"jsonfmt: {exc}")
+    def hash_text(self, args: list[str]) -> None: self.out(hashlib.sha256(self._text(args).encode()).hexdigest())
+    def sysinfo(self, args: list[str]) -> None: self.out(f"System: {platform.platform()}\nPython: {platform.python_version()}\nMachine: {platform.machine()}")
+    def disk_info(self, args: list[str]) -> None:
+        usage = shutil.disk_usage(self.cwd)
+        self.out(f"Location: {self.cwd}\nTotal: {usage.total:,} bytes\nUsed: {usage.used:,} bytes\nFree: {usage.free:,} bytes")
+    def hostname(self, args: list[str]) -> None: self.out(socket.gethostname())
+    def dns_lookup(self, args: list[str]) -> None:
+        if len(args) != 1: self.out("Usage: dns <hostname>"); return
+        try: self.out("\n".join(sorted({item[4][0] for item in socket.getaddrinfo(args[0], None)})))
+        except OSError as exc: self.out(f"dns: {exc}")
+    def calendar_view(self, args: list[str]) -> None:
+        today = datetime.date.today()
+        try:
+            year, month = (int(args[0]), int(args[1])) if len(args) == 2 else (today.year, today.month) if not args else (today.year, int(args[0]))
+            self.out(calendar_module.month(year, month))
+        except (ValueError, calendar_module.IllegalMonthError): self.out("Usage: calendarview [year] [month]")
+    def weekday(self, args: list[str]) -> None:
+        try: day = datetime.date.fromisoformat(args[0]) if args else datetime.date.today(); self.out(day.strftime("%A, %Y-%m-%d"))
+        except ValueError: self.out("Usage: weekday [YYYY-MM-DD]")
+    def timer(self, args: list[str]) -> None:
+        try:
+            seconds = int(args[0])
+            if len(args) != 1 or not 1 <= seconds <= 3600: raise ValueError()
+            self.out(f"Timer started: {seconds} seconds")
+            time.sleep(seconds)
+            self.out("Timer complete.")
+        except (ValueError, IndexError): self.out("Usage: timer <seconds 1-3600>")
+    def quiz(self, args: list[str]) -> None:
+        prompts = ["Math: What is 12 × 8? Answer: 96.", "Science: What gas do plants absorb during photosynthesis? Answer: Carbon dioxide.", "Geography: What is the largest ocean on Earth? Answer: The Pacific Ocean."]
+        self.out(random.choice(prompts))
 
     def path(self, raw: str) -> Path:
         p = Path(os.path.expanduser(raw))
@@ -72,11 +398,22 @@ class Tauron:
     def help(self, args: list[str]) -> None:
         names = sorted(self.commands)
         if not args or args[0] in ("list", "all"):
-            self.out(f"Tauron commands ({len(names)} names, {len(self.aliases)} shortcuts):")
+            self.out(f"Tauron commands ({len(names)} names, {len(self.aliases)} shortcuts). Scroll to browse the complete list.")
+            self.out("Categories: files, terminal, math, text, system, study, conversions. Use help <category> to filter.")
             for name in names:
                 target = self.aliases.get(name)
                 self.out(f"  {name}" + (f"  (same as {target})" if target else ""))
-            self.out("Use help <command> for usage. Scroll up in Terminal to browse the full list.")
+            self.out("Use help <command> for usage.")
+            return
+        if args[0] in {"files", "terminal", "math", "text", "system", "study", "conversions"}:
+            group = args[0]
+            matched = [name for name in names if self.command_groups.get(name) == group]
+            self.out(f"Tauron {group} commands ({len(matched)}):")
+            for name in matched: self.out(f"  {name}")
+            return
+        if args[0] in self.conversion_aliases:
+            source, target = self.conversion_aliases[args[0]]
+            self.out(f"Usage: {args[0]} <number>  — convert {source} to {target}")
             return
         usage = {
             "ls": "ls [path]", "cd": "cd [path]", "mkdir": "mkdir <dir>...",
@@ -91,7 +428,10 @@ class Tauron:
         if args:
             name = args[0]
             name = self.aliases.get(name, name)
-            if name in usage:
+            if name in COMMAND_INFO:
+                description, command_usage = COMMAND_INFO[name]
+                self.out(f"{description}\nUsage: {command_usage}")
+            elif name in usage:
                 self.out(f"Usage: {usage[name]}")
             elif name in self.commands:
                 self.out(f"{name}: Tauron built-in command")
@@ -409,4 +749,7 @@ class Tauron:
 
 
 if __name__ == "__main__":
-    Tauron().run()
+    if "--json-commands" in sys.argv[1:]:
+        print(json.dumps(Tauron().command_catalog(), ensure_ascii=False))
+    else:
+        Tauron().run()

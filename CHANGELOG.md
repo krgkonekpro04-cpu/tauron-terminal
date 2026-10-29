@@ -1,5 +1,12 @@
 # Tauron Changelog
 
+## 1.0.0 — Tauron Super Update
+
+- Add Tauron-styled image, audio, and video previews in the Mac folder browser and AI attachment composer, including MP3 and MP4 playback.
+- Add 1,014 named unit-conversion shortcuts across length, mass, volume, time, data, speed, area, and temperature, plus math, text, system, and study commands.
+- Add command categories to `help` and a build-generated command catalog that grounds Tauron AI's command advice in the actual runtime.
+- Add safe arithmetic, numeric utilities, text transforms, JSON/Base64/URL tools, system information, DNS lookup, calendar, and timer commands.
+
 ## 0.8.0 — Glass desktop refresh
 
 - Add translucent material panels, softer gradients, and rounded terminal, file, and chat surfaces.
