@@ -132,7 +132,9 @@ final class TauronAIService: ObservableObject {
     init() {
         // Prefer the on-device provider so Tauron works without a Gemini account or key.
         provider = TauronAIProvider(rawValue: UserDefaults.standard.string(forKey: "tauron.ai.provider") ?? "") ?? .ollama
-        localModel = UserDefaults.standard.string(forKey: "tauron.ai.ollamaModel") ?? "gemma4"
+        let savedModel = UserDefaults.standard.string(forKey: "tauron.ai.ollamaModel")
+        localModel = (savedModel == nil || savedModel == "gemma4") ? "qwen3:1.7b" : savedModel!
+        UserDefaults.standard.set(localModel, forKey: "tauron.ai.ollamaModel")
         mode = TauronAIMode(rawValue: UserDefaults.standard.string(forKey: "tauron.ai.mode") ?? "") ?? .coding
         hasAPIKey = apiKey != nil
         memories = Self.readMemories()
@@ -766,7 +768,7 @@ struct TauronAssistantView: View {
                             .background(Color.black.opacity(0.18), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                             .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(.white.opacity(0.12), lineWidth: 1))
                     } else {
-                        Text("Ollama runs an open model on this Mac. Download a model once, then Tauron can use it locally, including offline. Ollama is the runner, not a Tauron-trained model. Prompts and selected-folder context stay on this Mac. Image questions need a vision-capable model.")
+                        Text("Ollama runs an open model on this Mac. Download a model once, then Tauron can use it locally, including offline. Ollama is the runner, not a Tauron-trained model. Prompts and selected-folder context stay on this Mac. The lightweight default qwen3:1.7b is text-only; image questions need a vision-capable model.")
                             .fixedSize(horizontal: false, vertical: true)
                         Button {
                             if let url = URL(string: "https://ollama.com/download") { NSWorkspace.shared.open(url) }
@@ -777,7 +779,7 @@ struct TauronAssistantView: View {
                             .padding(11)
                             .background(Color.black.opacity(0.18), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                             .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(.white.opacity(0.12), lineWidth: 1))
-                        Text("Start Ollama and download a model first. Default: gemma4.")
+                        Text("Start Ollama and download a model first. Default: qwen3:1.7b (about 1.4 GB). Image questions need a vision-capable model.")
                             .font(.system(size: 11)).foregroundStyle(.secondary)
                     }
                     if let keyMessage { Text(keyMessage).font(.system(size: 12)).foregroundStyle(.red) }

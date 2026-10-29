@@ -1,5 +1,11 @@
 # Tauron Changelog
 
+## 1.0.3 — Lightweight Ollama default
+
+- Set Qwen 3 1.7B as Tauron's lightweight local model default.
+- Migrate the previous `gemma4` default while preserving any other model name selected by the user.
+- Clarify in settings that the lightweight default is text-only and image questions need a vision-capable model.
+
 ## 1.0.2 — Live changelog
 
 - Make `changelog` fetch the current notes from the Tauron GitHub repository whenever it runs.
